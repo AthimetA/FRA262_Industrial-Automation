@@ -21,7 +21,9 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <stdio.h>
+#include <string.h>
+#include "PID.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -31,6 +33,23 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+/* Controller parameters */
+#define PID_KP  2.0f
+#define PID_KI  0.5f
+#define PID_KD  0.25f
+
+#define PID_TAU 0.02f
+
+#define PID_LIM_MIN -10.0f
+#define PID_LIM_MAX  10.0f
+
+#define PID_LIM_MIN_INT -5.0f
+#define PID_LIM_MAX_INT  5.0f
+
+#define SAMPLE_TIME_S 0.01f
+
+/* Maximum run-time of simulation */
+#define SIMULATION_TIME_MAX 4.0f
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -42,7 +61,14 @@
  UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-
+ /* Initialise PID controller */
+PIDController pid = { PID_KP, PID_KI, PID_KD,
+					  PID_TAU,
+					  PID_LIM_MIN, PID_LIM_MAX,
+		  PID_LIM_MIN_INT, PID_LIM_MAX_INT,
+					  SAMPLE_TIME_S };
+/* Simulate response using test system */
+float setpoint = 1.0f;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -88,7 +114,7 @@ int main(void)
   MX_GPIO_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
-
+  PIDController_Init(&pid);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -96,7 +122,6 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -215,7 +240,6 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
 /* USER CODE END 4 */
 
 /**
