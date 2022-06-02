@@ -24,6 +24,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "PID.h"
+#include "arm_math.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -50,6 +51,9 @@
 
 /* Maximum run-time of simulation */
 #define SIMULATION_TIME_MAX 4.0f
+
+#define dt  0.001f
+#define var  9000.0f
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -58,9 +62,124 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
- UART_HandleTypeDef huart2;
+ TIM_HandleTypeDef htim1;
+TIM_HandleTypeDef htim2;
+TIM_HandleTypeDef htim3;
+TIM_HandleTypeDef htim11;
+
+UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
+/////////////////////////
+arm_status Kalmanstatus;
+// Matrix A
+float32_t MatA_Data[9] = {1 , dt , 0.5*dt*dt,
+						  0 , 1 , dt,
+						  0 , 0 , 1};
+arm_matrix_instance_f32 MatA;
+
+// Matrix B
+float32_t MatB_Data[3] = { 	0,
+							0,
+							0};
+arm_matrix_instance_f32 MatB;
+
+// Matrix C
+float32_t MatC_Data[3] = {1,0,0};
+arm_matrix_instance_f32 MatC;
+
+// Matrix D
+float32_t MatD_Data[1] = {0};
+arm_matrix_instance_f32 MatD;
+
+// Matrix Q
+float32_t MatQ_Data[9] = {	((dt*dt*dt*dt)*var)/4 , ((dt*dt*dt)*var)/2 , ((dt*dt)*var)/2,
+							((dt*dt*dt)*var)/2 , ((dt*dt)*var)   , dt,
+							((dt*dt)*var)/2 , dt             , 1};
+arm_matrix_instance_f32 MatQ;
+
+// Matrix R
+float32_t MatR_Data[1] = {0.02};
+arm_matrix_instance_f32 MatR;
+
+// Matrix G
+float32_t MatG_Data[9] = {	0 , 0 , ((dt*dt*dt))/6,
+							0 , 0 , ((dt*dt))/2,
+							0 , 0 , dt};
+arm_matrix_instance_f32 MatG;
+
+// Matrix State
+float32_t MatState_Data[3] = { 	0,
+								0,
+								0};
+arm_matrix_instance_f32 MatState;
+
+// Matrix State Last
+float32_t MatStateLast_Data[3] = { 	0,
+									0,
+									0};
+arm_matrix_instance_f32 MatStateLast;
+
+// Matrix Predict
+float32_t MatPredict_Data[9] = {1 , 1 , 1,
+								1 , 1 , 1,
+								1 , 1 , 1};
+arm_matrix_instance_f32 MatPredict;
+
+// Matrix Predict Last
+float32_t MatPredictLast_Data[9] = {1 , 1 , 1,
+									1 , 1 , 1,
+									1 , 1 , 1};
+arm_matrix_instance_f32 MatPredictLast;
+
+// Matrix Y
+float32_t MatY_Data[1] = {0};
+arm_matrix_instance_f32 MatY;
+
+// Matrix Z
+float32_t MatZ_Data[1] = {0};
+arm_matrix_instance_f32 MatZ;
+
+// Matrix S
+float32_t MatS_Data[1] = {0};
+arm_matrix_instance_f32 MatS;
+
+// Matrix Kalman gain
+float32_t MatK_Data[3] = { 	0,
+							0,
+							0};
+arm_matrix_instance_f32 MatK;
+
+// Matrix Iden
+float32_t MatI_Data[9] = {1 , 0 , 0,
+						  0 , 1 , 0,
+						  0 , 0 , 1};
+arm_matrix_instance_f32 MatI;
+
+// Matrix Known Input
+float32_t MatU_Data[1] = {0};
+arm_matrix_instance_f32 MatU;
+
+/* Matrix Buffer */
+float32_t MatAt_Data[9] = {0};
+arm_matrix_instance_f32 MatAt;
+float32_t MatGt_Data[9] = {0};
+arm_matrix_instance_f32 MatGt;
+float32_t MatCt_Data[3] = {0};
+arm_matrix_instance_f32 MatCt;
+float32_t MatSinv_Data[1] = {0};
+arm_matrix_instance_f32 MatSinv;
+float32_t MatGQGt_Data[9] = {0};
+arm_matrix_instance_f32 MatGQGt;
+////////////////////////
+uint64_t _micro = 0;
+int q[2] = {0};
+int step = 0;
+int pos[2] = {0,0};
+
+float angle[2] = {0};
+int PWMC = 250;
+uint8_t check = 0;
  /* Initialise PID controller */
 PIDController pid = { PID_KP, PID_KI, PID_KD,
 					  PID_TAU,
@@ -75,8 +194,16 @@ float setpoint = 1.0f;
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
+static void MX_TIM1_Init(void);
+static void MX_TIM2_Init(void);
+static void MX_TIM3_Init(void);
+static void MX_TIM11_Init(void);
 /* USER CODE BEGIN PFP */
-
+uint64_t Micros();
+void Drivemotor(int PWM);
+void kalman_func();
+void KalmanFilterFunction();
+void KalmanMatrixInit();
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -113,7 +240,21 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USART2_UART_Init();
+  MX_TIM1_Init();
+  MX_TIM2_Init();
+  MX_TIM3_Init();
+  MX_TIM11_Init();
   /* USER CODE BEGIN 2 */
+  KalmanMatrixInit();
+  //////////////////////////
+  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
+  HAL_TIM_Base_Start_IT (&htim11);
+  HAL_TIM_Base_Start_IT (&htim3);
+  HAL_TIM_Encoder_Start(&htim2, TIM_CHANNEL_ALL);
+	q[0]=TIM2->CNT;
+	q[1]=q[0];
+	pos[0] =q[0];
+	pos[1] =q[1];
   PIDController_Init(&pid);
   /* USER CODE END 2 */
 
@@ -122,6 +263,13 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
+	  Drivemotor(PWMC);
+	  static int timeStamp2 = 0;
+	  if (Micros() - timeStamp2 > 2000000)
+	  {
+			timeStamp2 = Micros();
+			PWMC = -1*PWMC;
+	  }
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -149,9 +297,9 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
-  RCC_OscInitStruct.PLL.PLLM = 16;
-  RCC_OscInitStruct.PLL.PLLN = 336;
-  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV4;
+  RCC_OscInitStruct.PLL.PLLM = 8;
+  RCC_OscInitStruct.PLL.PLLN = 100;
+  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
   RCC_OscInitStruct.PLL.PLLQ = 4;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
@@ -167,10 +315,200 @@ void SystemClock_Config(void)
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_3) != HAL_OK)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief TIM1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM1_Init(void)
+{
+
+  /* USER CODE BEGIN TIM1_Init 0 */
+
+  /* USER CODE END TIM1_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+  TIM_BreakDeadTimeConfigTypeDef sBreakDeadTimeConfig = {0};
+
+  /* USER CODE BEGIN TIM1_Init 1 */
+
+  /* USER CODE END TIM1_Init 1 */
+  htim1.Instance = TIM1;
+  htim1.Init.Prescaler = 99;
+  htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim1.Init.Period = 1000;
+  htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim1.Init.RepetitionCounter = 0;
+  htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_PWM_Init(&htim1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
+  sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_RESET;
+  if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sBreakDeadTimeConfig.OffStateRunMode = TIM_OSSR_DISABLE;
+  sBreakDeadTimeConfig.OffStateIDLEMode = TIM_OSSI_DISABLE;
+  sBreakDeadTimeConfig.LockLevel = TIM_LOCKLEVEL_OFF;
+  sBreakDeadTimeConfig.DeadTime = 0;
+  sBreakDeadTimeConfig.BreakState = TIM_BREAK_DISABLE;
+  sBreakDeadTimeConfig.BreakPolarity = TIM_BREAKPOLARITY_HIGH;
+  sBreakDeadTimeConfig.AutomaticOutput = TIM_AUTOMATICOUTPUT_DISABLE;
+  if (HAL_TIMEx_ConfigBreakDeadTime(&htim1, &sBreakDeadTimeConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM1_Init 2 */
+
+  /* USER CODE END TIM1_Init 2 */
+  HAL_TIM_MspPostInit(&htim1);
+
+}
+
+/**
+  * @brief TIM2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM2_Init(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_Encoder_InitTypeDef sConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 0;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 11999;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  sConfig.EncoderMode = TIM_ENCODERMODE_TI1;
+  sConfig.IC1Polarity = TIM_ICPOLARITY_FALLING;
+  sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
+  sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
+  sConfig.IC1Filter = 0;
+  sConfig.IC2Polarity = TIM_ICPOLARITY_FALLING;
+  sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
+  sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
+  sConfig.IC2Filter = 0;
+  if (HAL_TIM_Encoder_Init(&htim2, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
+
+}
+
+/**
+  * @brief TIM3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM3_Init(void)
+{
+
+  /* USER CODE BEGIN TIM3_Init 0 */
+
+  /* USER CODE END TIM3_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM3_Init 1 */
+
+  /* USER CODE END TIM3_Init 1 */
+  htim3.Instance = TIM3;
+  htim3.Init.Prescaler = 9;
+  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim3.Init.Period = 9999;
+  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM3_Init 2 */
+
+  /* USER CODE END TIM3_Init 2 */
+
+}
+
+/**
+  * @brief TIM11 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM11_Init(void)
+{
+
+  /* USER CODE BEGIN TIM11_Init 0 */
+
+  /* USER CODE END TIM11_Init 0 */
+
+  /* USER CODE BEGIN TIM11_Init 1 */
+
+  /* USER CODE END TIM11_Init 1 */
+  htim11.Instance = TIM11;
+  htim11.Init.Prescaler = 99;
+  htim11.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim11.Init.Period = 65535;
+  htim11.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim11.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim11) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM11_Init 2 */
+
+  /* USER CODE END TIM11_Init 2 */
+
 }
 
 /**
@@ -222,7 +560,7 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, LD2_Pin|PIN_DIR_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : B1_Pin */
   GPIO_InitStruct.Pin = B1_Pin;
@@ -230,16 +568,183 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : LD2_Pin */
-  GPIO_InitStruct.Pin = LD2_Pin;
+  /*Configure GPIO pins : LD2_Pin PIN_DIR_Pin */
+  GPIO_InitStruct.Pin = LD2_Pin|PIN_DIR_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(LD2_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
 }
 
 /* USER CODE BEGIN 4 */
+void KalmanMatrixInit()
+{
+	  arm_mat_init_f32(&MatA, 3, 3, MatA_Data);
+	  arm_mat_init_f32(&MatB, 3, 1, MatB_Data);
+	  arm_mat_init_f32(&MatC, 1, 3, MatC_Data);
+	  arm_mat_init_f32(&MatD, 1, 1, MatD_Data);
+	  arm_mat_init_f32(&MatQ, 3, 3, MatQ_Data);
+	  arm_mat_init_f32(&MatR, 1, 1, MatR_Data);
+	  arm_mat_init_f32(&MatG, 3, 3, MatG_Data);
+	  arm_mat_init_f32(&MatState, 3, 3, MatState_Data);
+	  arm_mat_init_f32(&MatStateLast, 3, 3, MatStateLast_Data);
+	  arm_mat_init_f32(&MatPredict, 3, 3, MatPredict_Data);
+	  arm_mat_init_f32(&MatPredictLast, 3, 3, MatPredictLast_Data);
+	  arm_mat_init_f32(&MatY, 1, 1, MatY_Data);
+	  arm_mat_init_f32(&MatZ, 1, 1, MatZ_Data);
+	  arm_mat_init_f32(&MatS, 1, 1, MatS_Data);
+	  arm_mat_init_f32(&MatK, 3, 1, MatK_Data);
+	  arm_mat_init_f32(&MatI, 3, 3, MatI_Data);
+	  arm_mat_init_f32(&MatAt, 3, 3, MatAt_Data);
+	  arm_mat_init_f32(&MatGt, 3, 3, MatGt_Data);
+	  arm_mat_init_f32(&MatCt, 1, 3, MatCt_Data);
+	  arm_mat_init_f32(&MatGQGt, 3, 3, MatGQGt_Data);
+	  arm_mat_init_f32(&MatSinv, 1, 1, MatSinv_Data);
+	  // Get Transpose
+	  arm_mat_trans_f32(&MatA, &MatAt);
+	  arm_mat_trans_f32(&MatG, &MatGt);
+	  arm_mat_trans_f32(&MatC, &MatCt);
+	  // Get GQGt
+	  arm_mat_mult_f32(&MatG, &MatQ, &MatGQGt);
+	  arm_mat_mult_f32(&MatGQGt, &MatGt, &MatGQGt);
+}
+
+void KalmanFilterFunction()
+{
+	q[0] = TIM2->CNT;
+	if(q[0]-q[1]<-7200){
+		step+=12000;
+	}
+	else if(q[0]-q[1]>=7200){
+		step-=12000;
+	}
+	pos[0] = q[0] + step;
+	// 1.Prediction
+	// Predicted State Estimate
+	Kalmanstatus = arm_mat_mult_f32(&MatA, &MatStateLast, &MatState); // A*Xk-1 ,No B*u
+	// Predicted error covariance
+	Kalmanstatus = arm_mat_mult_f32(&MatA, &MatPredictLast, &MatPredict); // A*Pk-1
+	Kalmanstatus = arm_mat_mult_f32(&MatPredict, &MatAt, &MatPredict); // A*Pk-1*At
+	Kalmanstatus = arm_mat_add_f32(&MatPredict, &MatGQGt, &MatPredict); // A*Pk-1*At + GQGt
+	// 2.Correction
+	// Innovation residual
+	MatZ_Data[0] = pos[0]; // Sensor Input
+	Kalmanstatus = arm_mat_mult_f32(&MatC, &MatState, &MatY); // C*Xk
+	Kalmanstatus = arm_mat_sub_f32(&MatZ, &MatY, &MatY); // Zk - C*Xk
+	// Innovation covariance
+	Kalmanstatus = arm_mat_mult_f32(&MatC, &MatPredict, &MatS); // C*Pk
+	Kalmanstatus = arm_mat_mult_f32(&MatS, &MatCt, &MatS); // C*Pk*Ct
+	Kalmanstatus = arm_mat_add_f32(&MatS, &MatR, &MatS); // C*Pk*Ct + R
+	Kalmanstatus = arm_mat_inverse_f32(&MatS, &MatSinv); // S inverse
+	// Optimal Kalman gain
+	Kalmanstatus = arm_mat_mult_f32(&MatPredict, &MatCt, &MatK); // Pk*Ct
+	Kalmanstatus = arm_mat_mult_f32(&MatK, &MatSinv, &MatK); // Pk*Ct*Sinv
+	// Corrected state estimate
+	Kalmanstatus = arm_mat_mult_f32(&MatK, &MatY, &MatStateLast); // K*Yk
+	Kalmanstatus = arm_mat_add_f32(&MatStateLast, &MatState, &MatStateLast); // Xk+K*Yk
+	// Corrected estimate covariance
+	Kalmanstatus = arm_mat_mult_f32(&MatK, &MatC, &MatPredictLast); //K*C
+	Kalmanstatus = arm_mat_sub_f32(&MatI, &MatPredictLast, &MatPredictLast); // I-K*C
+	Kalmanstatus = arm_mat_mult_f32(&MatPredictLast, &MatPredict, &MatPredictLast); // (I-K*C)*Pk
+	// Sensor Save
+	q[1] = q[0];
+}
+//void kalman_func(){
+//		q[0] = TIM2->CNT;
+//		if(q[0]-q[1]<-7200){
+//			step+=12000;
+//		}
+//		else if(q[0]-q[1]>=7200){
+//			step-=12000;
+//		}
+//		pos[0] = q[0] + step;
+//		//predict
+//		X[0] = X_l[0] + X_l[1] * dt + 0.5 * X_l[2] * dt * dt;
+//		X[1] = X_l[1] + X_l[2] * dt;
+//		X[2] = X_l[2];
+//		P[0][0] = P_l[0][0] + P_l[1][0] * dt + 0.5 * P_l[2][0] * dt * dt
+//				+ dt
+//						* (P_l[0][1] + P_l[1][1] * dt
+//								+ 0.5 * P_l[2][1] * dt * dt)
+//				+ 0.5 * dt * dt
+//						* (P_l[0][2] + P_l[1][2] * dt
+//								+ 0.5 * P_l[2][2] * dt * dt) + Q[0][0];
+//		P[1][0] = P_l[1][0] + P_l[2][0] * dt
+//				+ dt * (P_l[1][1] + P_l[2][1] * dt)
+//				+ 0.5 * dt * dt * (P_l[1][2] + P_l[2][2] * dt) + Q[1][0];
+//		P[2][0] = P_l[2][0] + P_l[2][1] * dt + 0.5 * dt * dt * P_l[2][2]
+//				+ Q[2][0];
+//		P[0][1] = P_l[0][1] + P_l[1][1] * dt + 0.5 * dt * dt * P_l[2][1]
+//				+ dt
+//						* (P_l[0][2] + P_l[1][2] * dt
+//								+ 0.5 * dt * dt * P_l[2][2]) + Q[0][1];
+//		P[1][1] = P_l[1][1] + P_l[2][1] * dt + P_l[1][2] * dt
+//				+ 0.5 * dt * dt * P_l[2][2] + Q[1][1];
+//		P[2][1] = P_l[2][1] + P_l[2][2] * dt + Q[2][1];
+//		P[0][2] = P_l[0][2] + P_l[1][2] * dt + 0.5 * dt * dt * P_l[2][2]
+//				+ Q[0][2];
+//		P[1][2] = P_l[1][2] + dt * P_l[2][2] + Q[1][2];
+//		P[2][2] = P_l[2][2] + Q[2][2];
+//		//correct
+//		z = (pos[0] - pos[1]) / dt;
+//		y = z - X[1];
+//		double s = P[1][1] + R;
+//		double K[] = { P[0][1] / s, P[1][1] / s, P[2][1] / s };
+//		X_l[0] = X[0] + K[0] * y;
+//		X_l[1] = X[1] + K[1] * y;
+//		X_l[2] = X[2] + K[2] * y;
+//		P_l[0][0] = P[0][0] - (P[0][1] * P[1][0]) / (P[1][1] + R);
+//		P_l[1][0] = P[1][0] - (P[1][0] * P[1][1]) / (P[1][1] + R);
+//		P_l[2][0] = P[2][0] - (P[1][0] * P[2][1]) / (P[1][1] + R);
+//		P_l[0][1] = P[0][1] - (P[0][1] * P[1][1]) / (P[1][1] + R);
+//		P_l[1][1] = P[1][1] - (P[1][1] * P[1][1]) / (P[1][1] + R);
+//		P_l[2][1] = P[2][1] - (P[1][1] * P[2][1]) / (P[1][1] + R);
+//		P_l[0][2] = P[0][2] - (P[0][1] * P[1][2]) / (P[1][1] + R);
+//		P_l[1][2] = P[1][2] - (P[1][1] * P[1][2]) / (P[1][1] + R);
+//		P_l[2][2] = P[2][2] - (P[1][2] * P[2][1]) / (P[1][1] + R);
+//		q[1] = q[0];
+//		pos[1] = pos[0];
+//}
+
+uint32_t aaabs(int x){
+
+	if(x<0){
+		return x*-1;
+	}else{
+		return x;
+	}
+}
+
+
+void Drivemotor(int PWM){
+	if(PWM<=0 && PWM>=-500){
+		htim1.Instance->CCR1=aaabs(PWM);
+		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9,0);
+	}else if (PWM<-500){
+		htim1.Instance->CCR1=500;
+		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9,0);
+	}else if(PWM>=0 && PWM<=500){
+		htim1.Instance->CCR1=aaabs(PWM);
+		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9,1);
+	}else if(PWM>500){
+		htim1.Instance->CCR1=500;
+		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9,1);
+	}
+}
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
+	if (htim == &htim11) {
+		_micro += 65535;
+	}
+	if (htim == &htim3) {
+		KalmanFilterFunction();
+		}
+}
+
+uint64_t Micros(){
+	return _micro + TIM11->CNT;
+}
 /* USER CODE END 4 */
 
 /**
