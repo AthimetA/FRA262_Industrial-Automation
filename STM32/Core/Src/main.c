@@ -53,7 +53,7 @@
 #define SIMULATION_TIME_MAX 4.0f
 
 #define dt  0.001f
-#define var  9000.0f
+#define var  1.0f
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -99,7 +99,7 @@ float32_t MatQ_Data[9] = {	((dt*dt*dt*dt)*var)/4 , ((dt*dt*dt)*var)/2 , ((dt*dt)
 arm_matrix_instance_f32 MatQ;
 
 // Matrix R
-float32_t MatR_Data[1] = {0.02};
+float32_t MatR_Data[1] = {0.000001};
 arm_matrix_instance_f32 MatR;
 
 // Matrix G
@@ -121,15 +121,15 @@ float32_t MatStateLast_Data[3] = { 	0,
 arm_matrix_instance_f32 MatStateLast;
 
 // Matrix Predict
-float32_t MatPredict_Data[9] = {1 , 1 , 1,
-								1 , 1 , 1,
-								1 , 1 , 1};
+float32_t MatPredict_Data[9] = {0 , 0 , 0,
+								0 , 0 , 0,
+								0 , 0 , 0};
 arm_matrix_instance_f32 MatPredict;
 
 // Matrix Predict Last
-float32_t MatPredictLast_Data[9] = {1 , 1 , 1,
-									1 , 1 , 1,
-									1 , 1 , 1};
+float32_t MatPredictLast_Data[9] = {0 , 0 , 0,
+									0 , 0 , 0,
+									0 , 0 , 0};
 arm_matrix_instance_f32 MatPredictLast;
 
 // Matrix Y
@@ -171,6 +171,25 @@ float32_t MatSinv_Data[1] = {0};
 arm_matrix_instance_f32 MatSinv;
 float32_t MatGQGt_Data[9] = {0};
 arm_matrix_instance_f32 MatGQGt;
+float32_t MatCPk_Data[3] = {0};
+arm_matrix_instance_f32 MatCPk;
+float32_t MatAPk_Data[9] = {0};
+arm_matrix_instance_f32 MatAPk;
+float32_t MatAPkAt_Data[9] = {0};
+arm_matrix_instance_f32 MatAPkAt;
+float32_t MatCXk_Data[1] = {0};
+arm_matrix_instance_f32 MatCXk;
+float32_t MatCPkCt_Data[1] = {0};
+arm_matrix_instance_f32 MatCPkCt;
+float32_t MatPkCt_Data[3] = {0};
+arm_matrix_instance_f32 MatPkCt;
+float32_t MatKYk_Data[3] = {0};
+arm_matrix_instance_f32 MatKYk;
+float32_t MatKC_Data[9] = {0};
+arm_matrix_instance_f32 MatKC;
+float32_t MatI_KC_Data[9] = {0};
+arm_matrix_instance_f32 MatI_KC;
+
 ////////////////////////
 uint64_t _micro = 0;
 int q[2] = {0};
@@ -262,7 +281,6 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    /* USER CODE END WHILE */
 	  Drivemotor(PWMC);
 	  static int timeStamp2 = 0;
 	  if (Micros() - timeStamp2 > 2000000)
@@ -270,6 +288,8 @@ int main(void)
 			timeStamp2 = Micros();
 			PWMC = -1*PWMC;
 	  }
+    /* USER CODE END WHILE */
+
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -587,8 +607,8 @@ void KalmanMatrixInit()
 	  arm_mat_init_f32(&MatQ, 3, 3, MatQ_Data);
 	  arm_mat_init_f32(&MatR, 1, 1, MatR_Data);
 	  arm_mat_init_f32(&MatG, 3, 3, MatG_Data);
-	  arm_mat_init_f32(&MatState, 3, 3, MatState_Data);
-	  arm_mat_init_f32(&MatStateLast, 3, 3, MatStateLast_Data);
+	  arm_mat_init_f32(&MatState, 3, 1, MatState_Data);
+	  arm_mat_init_f32(&MatStateLast, 3, 1, MatStateLast_Data);
 	  arm_mat_init_f32(&MatPredict, 3, 3, MatPredict_Data);
 	  arm_mat_init_f32(&MatPredictLast, 3, 3, MatPredictLast_Data);
 	  arm_mat_init_f32(&MatY, 1, 1, MatY_Data);
@@ -598,14 +618,24 @@ void KalmanMatrixInit()
 	  arm_mat_init_f32(&MatI, 3, 3, MatI_Data);
 	  arm_mat_init_f32(&MatAt, 3, 3, MatAt_Data);
 	  arm_mat_init_f32(&MatGt, 3, 3, MatGt_Data);
-	  arm_mat_init_f32(&MatCt, 1, 3, MatCt_Data);
+	  arm_mat_init_f32(&MatCt, 3, 1, MatCt_Data);
 	  arm_mat_init_f32(&MatGQGt, 3, 3, MatGQGt_Data);
 	  arm_mat_init_f32(&MatSinv, 1, 1, MatSinv_Data);
+	  arm_mat_init_f32(&MatCPk, 1, 3, MatCPk_Data);
+
+	  arm_mat_init_f32(&MatAPk, 3, 3, MatAPk_Data);
+	  arm_mat_init_f32(&MatAPkAt, 3, 3, MatAPkAt_Data);
+	  arm_mat_init_f32(&MatCXk, 1, 1, MatCXk_Data);
+	  arm_mat_init_f32(&MatCPkCt, 1, 1, MatCPkCt_Data);
+	  arm_mat_init_f32(&MatPkCt, 3, 1, MatPkCt_Data);
+	  arm_mat_init_f32(&MatKYk, 3, 1,MatKYk_Data);
+	  arm_mat_init_f32(&MatKC, 3, 3, MatKC_Data);
+	  arm_mat_init_f32(&MatI_KC, 3, 3, MatI_KC_Data);
 	  // Get Transpose
 	  arm_mat_trans_f32(&MatA, &MatAt);
 	  arm_mat_trans_f32(&MatG, &MatGt);
 	  arm_mat_trans_f32(&MatC, &MatCt);
-	  // Get GQGt
+	  // Get Buffer
 	  arm_mat_mult_f32(&MatG, &MatQ, &MatGQGt);
 	  arm_mat_mult_f32(&MatGQGt, &MatGt, &MatGQGt);
 }
@@ -624,31 +654,33 @@ void KalmanFilterFunction()
 	// Predicted State Estimate
 	Kalmanstatus = arm_mat_mult_f32(&MatA, &MatStateLast, &MatState); // A*Xk-1 ,No B*u
 	// Predicted error covariance
-	Kalmanstatus = arm_mat_mult_f32(&MatA, &MatPredictLast, &MatPredict); // A*Pk-1
-	Kalmanstatus = arm_mat_mult_f32(&MatPredict, &MatAt, &MatPredict); // A*Pk-1*At
-	Kalmanstatus = arm_mat_add_f32(&MatPredict, &MatGQGt, &MatPredict); // A*Pk-1*At + GQGt
+	Kalmanstatus = arm_mat_mult_f32(&MatA, &MatPredictLast, &MatAPk); // A*Pk-1
+	Kalmanstatus = arm_mat_mult_f32(&MatAPk, &MatAt, &MatAPkAt); // A*Pk-1*At
+	Kalmanstatus = arm_mat_add_f32(&MatAPkAt, &MatGQGt, &MatPredict); // A*Pk-1*At + GQGt
 	// 2.Correction
 	// Innovation residual
 	MatZ_Data[0] = pos[0]; // Sensor Input
-	Kalmanstatus = arm_mat_mult_f32(&MatC, &MatState, &MatY); // C*Xk
-	Kalmanstatus = arm_mat_sub_f32(&MatZ, &MatY, &MatY); // Zk - C*Xk
+	Kalmanstatus = arm_mat_mult_f32(&MatC, &MatState, &MatCXk); // C*Xk
+	Kalmanstatus = arm_mat_sub_f32(&MatZ, &MatCXk, &MatY); // Zk - C*Xk
 	// Innovation covariance
-	Kalmanstatus = arm_mat_mult_f32(&MatC, &MatPredict, &MatS); // C*Pk
-	Kalmanstatus = arm_mat_mult_f32(&MatS, &MatCt, &MatS); // C*Pk*Ct
-	Kalmanstatus = arm_mat_add_f32(&MatS, &MatR, &MatS); // C*Pk*Ct + R
+	Kalmanstatus = arm_mat_mult_f32(&MatC, &MatPredict, &MatCPk); // C*Pk
+	Kalmanstatus = arm_mat_mult_f32(&MatCPk, &MatCt, &MatCPkCt); // C*Pk*Ct
+	Kalmanstatus = arm_mat_add_f32(&MatCPkCt, &MatR, &MatS); // C*Pk*Ct + R
 	Kalmanstatus = arm_mat_inverse_f32(&MatS, &MatSinv); // S inverse
 	// Optimal Kalman gain
-	Kalmanstatus = arm_mat_mult_f32(&MatPredict, &MatCt, &MatK); // Pk*Ct
-	Kalmanstatus = arm_mat_mult_f32(&MatK, &MatSinv, &MatK); // Pk*Ct*Sinv
+	Kalmanstatus = arm_mat_mult_f32(&MatPredict, &MatCt, &MatPkCt); // Pk*Ct
+//	Kalmanstatus = arm_mat_scale_f32(&MatPkCt, 1/MatS_Data[0], &MatK); // Pk*Ct*Sinv
+	Kalmanstatus = arm_mat_mult_f32(&MatPkCt, &MatSinv, &MatK); // Pk*Ct*Sinv
 	// Corrected state estimate
-	Kalmanstatus = arm_mat_mult_f32(&MatK, &MatY, &MatStateLast); // K*Yk
-	Kalmanstatus = arm_mat_add_f32(&MatStateLast, &MatState, &MatStateLast); // Xk+K*Yk
+	Kalmanstatus = arm_mat_mult_f32(&MatK, &MatY, &MatKYk); // K*Yk
+	Kalmanstatus = arm_mat_add_f32(&MatKYk, &MatState, &MatStateLast); // Xk+K*Yk
 	// Corrected estimate covariance
-	Kalmanstatus = arm_mat_mult_f32(&MatK, &MatC, &MatPredictLast); //K*C
-	Kalmanstatus = arm_mat_sub_f32(&MatI, &MatPredictLast, &MatPredictLast); // I-K*C
-	Kalmanstatus = arm_mat_mult_f32(&MatPredictLast, &MatPredict, &MatPredictLast); // (I-K*C)*Pk
+	Kalmanstatus = arm_mat_mult_f32(&MatK, &MatC, &MatKC); //K*C
+	Kalmanstatus = arm_mat_sub_f32(&MatI, &MatKC, &MatI_KC); // I-K*C
+	Kalmanstatus = arm_mat_mult_f32(&MatI_KC, &MatPredict, &MatPredictLast); // (I-K*C)*Pk
 	// Sensor Save
 	q[1] = q[0];
+	pos[1] = pos[0];
 }
 //void kalman_func(){
 //		q[0] = TIM2->CNT;
