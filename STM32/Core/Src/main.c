@@ -56,6 +56,8 @@
 #define dt  0.001f
 #define var  1.0f
 
+#define PWM_MAX 10000
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -81,7 +83,7 @@ float32_t PositionDeg = 0;
 float32_t PositionRad = 0;
 
 float angle[2] = {0};
-int PWMC = 250;
+int PWMC = 2500;
 uint8_t check = 0;
 /* Initialise Kalman Filter */
 KalmanFilterVar KalmanVar = {
@@ -275,9 +277,9 @@ static void MX_TIM1_Init(void)
 
   /* USER CODE END TIM1_Init 1 */
   htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 99;
+  htim1.Init.Prescaler = 9;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 1000;
+  htim1.Init.Period = 9999;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim1.Init.RepetitionCounter = 0;
   htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
@@ -539,17 +541,17 @@ uint32_t aaabs(int x){
 
 
 void Drivemotor(int PWM){
-	if(PWM<=0 && PWM>=-500){
+	if(PWM<=0 && PWM>=-PWM_MAX){
 		htim1.Instance->CCR1=aaabs(PWM);
 		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9,0);
-	}else if (PWM<-500){
-		htim1.Instance->CCR1=500;
+	}else if (PWM<-PWM_MAX){
+		htim1.Instance->CCR1=PWM_MAX;
 		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9,0);
-	}else if(PWM>=0 && PWM<=500){
+	}else if(PWM>=0 && PWM<=PWM_MAX){
 		htim1.Instance->CCR1=aaabs(PWM);
 		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9,1);
-	}else if(PWM>500){
-		htim1.Instance->CCR1=500;
+	}else if(PWM>PWM_MAX){
+		htim1.Instance->CCR1=PWM_MAX;
 		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9,1);
 	}
 }
