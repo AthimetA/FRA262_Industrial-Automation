@@ -38,14 +38,14 @@
 /* Controller,Kalman parameters */
 #define dt  0.001f
 #define Kalmanvar  1.0f
-#define PID_KP  2.0f
-#define PID_KI  0.5f
-#define PID_KD  0.25f
-#define PID_TAU 0.02f
-#define PID_LIM_MIN -10.0f
-#define PID_LIM_MAX  10.0f
-#define PID_LIM_MIN_INT -5.0f
-#define PID_LIM_MAX_INT  5.0f
+#define PID_KP  30.0f
+#define PID_KI  0.0f
+#define PID_KD  0.0f
+#define PID_TAU 0.0f
+#define PID_LIM_MIN -8000.0f
+#define PID_LIM_MAX  8000.0f
+#define PID_LIM_MIN_INT -10000.0f
+#define PID_LIM_MAX_INT  10000.0f
 /* Maximum run-time of simulation */
 #define SIMULATION_TIME_MAX 4.0f
 /* PWM MAX parameters */
@@ -114,8 +114,8 @@ PIDController pid = { PID_KP, PID_KI, PID_KD,
 		  PID_LIM_MIN_INT, PID_LIM_MAX_INT,
 		  dt };
 /* Simulate response using test system */
-float setpoint = 1.0f;
-int16_t PWMC = 2500;
+float setpoint = -180.0f;
+int32_t PWMC = 2500;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -128,8 +128,8 @@ static void MX_TIM3_Init(void);
 static void MX_TIM11_Init(void);
 /* USER CODE BEGIN PFP */
 uint64_t Micros();
-uint16_t PWMAbs(int16_t PWM);
-void Drivemotor(int16_t PWM);
+uint32_t PWMAbs(int32_t PWM);
+void Drivemotor(int32_t PWM);
 void EncoderRead();
 /* USER CODE END PFP */
 
@@ -188,7 +188,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  Drivemotor(PWMC);
+	  Drivemotor(pid.out);
 	  static int timeStamp2 = 0;
 	  if (Micros() - timeStamp2 > 2000000)
 	  {
@@ -337,7 +337,7 @@ static void MX_TIM2_Init(void)
   htim2.Init.Period = 11999;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  sConfig.EncoderMode = TIM_ENCODERMODE_TI1;
+  sConfig.EncoderMode = TIM_ENCODERMODE_TI12;
   sConfig.IC1Polarity = TIM_ICPOLARITY_FALLING;
   sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
   sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
@@ -521,7 +521,7 @@ void EncoderRead()
 	EncoderRawData[1] = EncoderRawData[0];
 }
 
-uint16_t PWMAbs(int16_t PWM){
+uint32_t PWMAbs(int32_t PWM){
 
 	if(PWM<0){
 		return PWM*-1;
@@ -531,7 +531,7 @@ uint16_t PWMAbs(int16_t PWM){
 }
 
 
-void Drivemotor(int16_t PWM){
+void Drivemotor(int32_t PWM){
 	if(PWM<=0 && PWM>=-PWM_MAX){
 		htim1.Instance->CCR1=PWMAbs(PWM);
 		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9,0);
@@ -554,6 +554,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	if (htim == &htim3) {
 		EncoderRead();
 		KalmanFilterFunction(&KalmanVar,PositionDeg);
+		PIDController_Update(&pid, setpoint, KalmanVar.MatState_Data[0]);
 		}
 }
 
