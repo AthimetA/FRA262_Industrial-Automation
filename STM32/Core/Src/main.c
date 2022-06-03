@@ -24,8 +24,8 @@
 #include <stdio.h>
 #include <string.h>
 #include "PID.h"
-#include "arm_math.h"
 #include "Kalman.h"
+#include "arm_math.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -35,29 +35,21 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-/* Controller parameters */
+/* Controller,Kalman parameters */
+#define dt  0.001f
+#define Kalmanvar  1.0f
 #define PID_KP  2.0f
 #define PID_KI  0.5f
 #define PID_KD  0.25f
-
 #define PID_TAU 0.02f
-
 #define PID_LIM_MIN -10.0f
 #define PID_LIM_MAX  10.0f
-
 #define PID_LIM_MIN_INT -5.0f
 #define PID_LIM_MAX_INT  5.0f
-
-#define SAMPLE_TIME_S 0.01f
-
 /* Maximum run-time of simulation */
 #define SIMULATION_TIME_MAX 4.0f
-
-#define dt  0.001f
-#define var  1.0f
-
+/* PWM MAX parameters */
 #define PWM_MAX 10000
-
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -74,24 +66,21 @@ TIM_HandleTypeDef htim11;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-////////////////////////
+/* Setup Microsec */
 uint64_t _micro = 0;
+/* Setup EncoderData */
 int EncoderRawData[2] = {0};
 int WrappingStep = 0;
 int PositionRaw = 0;;
 float32_t PositionDeg = 0;
 float32_t PositionRad = 0;
-
-float angle[2] = {0};
-int PWMC = 2500;
-uint8_t check = 0;
 /* Initialise Kalman Filter */
 KalmanFilterVar KalmanVar = {
 		{1 , dt , 0.5*dt*dt,0 , 1 , dt,0 , 0 , 1},
 		{0,0,0},
 		{1,0,0},
 		{0},
-		{((dt*dt*dt*dt)*var)/4 , ((dt*dt*dt)*var)/2 , ((dt*dt)*var)/2,((dt*dt*dt)*var)/2 ,((dt*dt)*var), dt,((dt*dt)*var)/2 , dt, 1},
+		{((dt*dt*dt*dt)*Kalmanvar)/4 , ((dt*dt*dt)*Kalmanvar)/2 , ((dt*dt)*Kalmanvar)/2,((dt*dt*dt)*Kalmanvar)/2 ,((dt*dt)*Kalmanvar), dt,((dt*dt)*Kalmanvar)/2 , dt, 1},
 		{0.000001},
 		{0 , 0 , ((dt*dt*dt))/6,0 , 0 , ((dt*dt))/2,0 , 0 , dt},
 		{0,0,0},
@@ -123,9 +112,10 @@ PIDController pid = { PID_KP, PID_KI, PID_KD,
 					  PID_TAU,
 					  PID_LIM_MIN, PID_LIM_MAX,
 		  PID_LIM_MIN_INT, PID_LIM_MAX_INT,
-					  SAMPLE_TIME_S };
+		  dt };
 /* Simulate response using test system */
 float setpoint = 1.0f;
+int16_t PWMC = 2500;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -138,7 +128,8 @@ static void MX_TIM3_Init(void);
 static void MX_TIM11_Init(void);
 /* USER CODE BEGIN PFP */
 uint64_t Micros();
-void Drivemotor(int PWM);
+uint16_t PWMAbs(int16_t PWM);
+void Drivemotor(int16_t PWM);
 void EncoderRead();
 /* USER CODE END PFP */
 
@@ -530,25 +521,25 @@ void EncoderRead()
 	EncoderRawData[1] = EncoderRawData[0];
 }
 
-uint32_t aaabs(int x){
+uint16_t PWMAbs(int16_t PWM){
 
-	if(x<0){
-		return x*-1;
+	if(PWM<0){
+		return PWM*-1;
 	}else{
-		return x;
+		return PWM;
 	}
 }
 
 
-void Drivemotor(int PWM){
+void Drivemotor(int16_t PWM){
 	if(PWM<=0 && PWM>=-PWM_MAX){
-		htim1.Instance->CCR1=aaabs(PWM);
+		htim1.Instance->CCR1=PWMAbs(PWM);
 		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9,0);
 	}else if (PWM<-PWM_MAX){
 		htim1.Instance->CCR1=PWM_MAX;
 		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9,0);
 	}else if(PWM>=0 && PWM<=PWM_MAX){
-		htim1.Instance->CCR1=aaabs(PWM);
+		htim1.Instance->CCR1=PWMAbs(PWM);
 		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9,1);
 	}else if(PWM>PWM_MAX){
 		htim1.Instance->CCR1=PWM_MAX;
