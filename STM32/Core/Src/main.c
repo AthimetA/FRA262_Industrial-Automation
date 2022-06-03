@@ -192,9 +192,11 @@ arm_matrix_instance_f32 MatI_KC;
 
 ////////////////////////
 uint64_t _micro = 0;
-int q[2] = {0};
-int step = 0;
-int pos[2] = {0,0};
+int EncoderRawData[2] = {0};
+int WrappingStep = 0;
+int PositionRaw = 0;;
+float32_t PositionDeg = 0;
+float32_t PositionRad = 0;
 
 float angle[2] = {0};
 int PWMC = 250;
@@ -220,9 +222,9 @@ static void MX_TIM11_Init(void);
 /* USER CODE BEGIN PFP */
 uint64_t Micros();
 void Drivemotor(int PWM);
-void kalman_func();
 void KalmanFilterFunction();
 void KalmanMatrixInit();
+void EncoderRead();
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -270,10 +272,9 @@ int main(void)
   HAL_TIM_Base_Start_IT (&htim11);
   HAL_TIM_Base_Start_IT (&htim3);
   HAL_TIM_Encoder_Start(&htim2, TIM_CHANNEL_ALL);
-	q[0]=TIM2->CNT;
-	q[1]=q[0];
-	pos[0] =q[0];
-	pos[1] =q[1];
+  EncoderRawData[0]=TIM2->CNT;
+  EncoderRawData[1]=EncoderRawData[0];
+  PositionRaw=EncoderRawData[0];
   PIDController_Init(&pid);
   /* USER CODE END 2 */
 
@@ -642,14 +643,6 @@ void KalmanMatrixInit()
 
 void KalmanFilterFunction()
 {
-	q[0] = TIM2->CNT;
-	if(q[0]-q[1]<-7200){
-		step+=12000;
-	}
-	else if(q[0]-q[1]>=7200){
-		step-=12000;
-	}
-	pos[0] = q[0] + step;
 	// 1.Prediction
 	// Predicted State Estimate
 	Kalmanstatus = arm_mat_mult_f32(&MatA, &MatStateLast, &MatState); // A*Xk-1 ,No B*u
@@ -659,7 +652,7 @@ void KalmanFilterFunction()
 	Kalmanstatus = arm_mat_add_f32(&MatAPkAt, &MatGQGt, &MatPredict); // A*Pk-1*At + GQGt
 	// 2.Correction
 	// Innovation residual
-	MatZ_Data[0] = pos[0]; // Sensor Input
+	MatZ_Data[0] = PositionDeg; // Sensor Input
 	Kalmanstatus = arm_mat_mult_f32(&MatC, &MatState, &MatCXk); // C*Xk
 	Kalmanstatus = arm_mat_sub_f32(&MatZ, &MatCXk, &MatY); // Zk - C*Xk
 	// Innovation covariance
@@ -669,7 +662,6 @@ void KalmanFilterFunction()
 	Kalmanstatus = arm_mat_inverse_f32(&MatS, &MatSinv); // S inverse
 	// Optimal Kalman gain
 	Kalmanstatus = arm_mat_mult_f32(&MatPredict, &MatCt, &MatPkCt); // Pk*Ct
-//	Kalmanstatus = arm_mat_scale_f32(&MatPkCt, 1/MatS_Data[0], &MatK); // Pk*Ct*Sinv
 	Kalmanstatus = arm_mat_mult_f32(&MatPkCt, &MatSinv, &MatK); // Pk*Ct*Sinv
 	// Corrected state estimate
 	Kalmanstatus = arm_mat_mult_f32(&MatK, &MatY, &MatKYk); // K*Yk
@@ -678,66 +670,23 @@ void KalmanFilterFunction()
 	Kalmanstatus = arm_mat_mult_f32(&MatK, &MatC, &MatKC); //K*C
 	Kalmanstatus = arm_mat_sub_f32(&MatI, &MatKC, &MatI_KC); // I-K*C
 	Kalmanstatus = arm_mat_mult_f32(&MatI_KC, &MatPredict, &MatPredictLast); // (I-K*C)*Pk
-	// Sensor Save
-	q[1] = q[0];
-	pos[1] = pos[0];
 }
-//void kalman_func(){
-//		q[0] = TIM2->CNT;
-//		if(q[0]-q[1]<-7200){
-//			step+=12000;
-//		}
-//		else if(q[0]-q[1]>=7200){
-//			step-=12000;
-//		}
-//		pos[0] = q[0] + step;
-//		//predict
-//		X[0] = X_l[0] + X_l[1] * dt + 0.5 * X_l[2] * dt * dt;
-//		X[1] = X_l[1] + X_l[2] * dt;
-//		X[2] = X_l[2];
-//		P[0][0] = P_l[0][0] + P_l[1][0] * dt + 0.5 * P_l[2][0] * dt * dt
-//				+ dt
-//						* (P_l[0][1] + P_l[1][1] * dt
-//								+ 0.5 * P_l[2][1] * dt * dt)
-//				+ 0.5 * dt * dt
-//						* (P_l[0][2] + P_l[1][2] * dt
-//								+ 0.5 * P_l[2][2] * dt * dt) + Q[0][0];
-//		P[1][0] = P_l[1][0] + P_l[2][0] * dt
-//				+ dt * (P_l[1][1] + P_l[2][1] * dt)
-//				+ 0.5 * dt * dt * (P_l[1][2] + P_l[2][2] * dt) + Q[1][0];
-//		P[2][0] = P_l[2][0] + P_l[2][1] * dt + 0.5 * dt * dt * P_l[2][2]
-//				+ Q[2][0];
-//		P[0][1] = P_l[0][1] + P_l[1][1] * dt + 0.5 * dt * dt * P_l[2][1]
-//				+ dt
-//						* (P_l[0][2] + P_l[1][2] * dt
-//								+ 0.5 * dt * dt * P_l[2][2]) + Q[0][1];
-//		P[1][1] = P_l[1][1] + P_l[2][1] * dt + P_l[1][2] * dt
-//				+ 0.5 * dt * dt * P_l[2][2] + Q[1][1];
-//		P[2][1] = P_l[2][1] + P_l[2][2] * dt + Q[2][1];
-//		P[0][2] = P_l[0][2] + P_l[1][2] * dt + 0.5 * dt * dt * P_l[2][2]
-//				+ Q[0][2];
-//		P[1][2] = P_l[1][2] + dt * P_l[2][2] + Q[1][2];
-//		P[2][2] = P_l[2][2] + Q[2][2];
-//		//correct
-//		z = (pos[0] - pos[1]) / dt;
-//		y = z - X[1];
-//		double s = P[1][1] + R;
-//		double K[] = { P[0][1] / s, P[1][1] / s, P[2][1] / s };
-//		X_l[0] = X[0] + K[0] * y;
-//		X_l[1] = X[1] + K[1] * y;
-//		X_l[2] = X[2] + K[2] * y;
-//		P_l[0][0] = P[0][0] - (P[0][1] * P[1][0]) / (P[1][1] + R);
-//		P_l[1][0] = P[1][0] - (P[1][0] * P[1][1]) / (P[1][1] + R);
-//		P_l[2][0] = P[2][0] - (P[1][0] * P[2][1]) / (P[1][1] + R);
-//		P_l[0][1] = P[0][1] - (P[0][1] * P[1][1]) / (P[1][1] + R);
-//		P_l[1][1] = P[1][1] - (P[1][1] * P[1][1]) / (P[1][1] + R);
-//		P_l[2][1] = P[2][1] - (P[1][1] * P[2][1]) / (P[1][1] + R);
-//		P_l[0][2] = P[0][2] - (P[0][1] * P[1][2]) / (P[1][1] + R);
-//		P_l[1][2] = P[1][2] - (P[1][1] * P[1][2]) / (P[1][1] + R);
-//		P_l[2][2] = P[2][2] - (P[1][2] * P[2][1]) / (P[1][1] + R);
-//		q[1] = q[0];
-//		pos[1] = pos[0];
-//}
+
+void EncoderRead()
+{
+	static int32_t SignalThreshold = 0.6*12000;
+	EncoderRawData[0] = TIM2->CNT;
+	if(EncoderRawData[0]-EncoderRawData[1]<-SignalThreshold){
+		WrappingStep+=12000;
+	}
+	else if(EncoderRawData[0]-EncoderRawData[1]>=SignalThreshold){
+		WrappingStep-=12000;
+	}
+	PositionRaw = EncoderRawData[0] + WrappingStep;
+	PositionRad = (PositionRaw/12000.0)*2.0*3.14;
+	PositionDeg = (PositionRaw/12000.0)*360.0;
+	EncoderRawData[1] = EncoderRawData[0];
+}
 
 uint32_t aaabs(int x){
 
@@ -770,6 +719,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 		_micro += 65535;
 	}
 	if (htim == &htim3) {
+		EncoderRead();
 		KalmanFilterFunction();
 		}
 }
