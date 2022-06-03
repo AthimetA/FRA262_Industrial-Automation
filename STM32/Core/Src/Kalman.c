@@ -8,6 +8,7 @@
 #include "Kalman.h"
 #include "arm_math.h"
 
+<<<<<<< HEAD
 void KalmanMatrixInit(KalmanFilterVar *KalmanVar)
 {
 	  arm_mat_init_f32(&(KalmanVar ->MatA), 3, 3, KalmanVar ->MatA_Data);
@@ -79,3 +80,5 @@ void KalmanFilterFunction(KalmanFilterVar *KalmanVar,float32_t PositionDeg)
 	KalmanVar ->Kalmanstatus = arm_mat_sub_f32(&(KalmanVar ->MatI), &(KalmanVar ->MatKC), &(KalmanVar ->MatI_KC)); // I-K*C
 	KalmanVar ->Kalmanstatus = arm_mat_mult_f32(&(KalmanVar ->MatI_KC), &(KalmanVar ->MatPredict), &(KalmanVar ->MatPredictLast)); // (I-K*C)*Pk
 }
+=======
+>>>>>>> parent of 06c0c4d (Update แยกไฟล์ Function)
