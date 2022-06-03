@@ -56,8 +56,11 @@
 #define dt  0.001f
 #define var  1.0f
 <<<<<<< HEAD
+<<<<<<< HEAD
 #define KalmanR 0.000001f
 
+=======
+>>>>>>> parent of 06c0c4d (Update แยกไฟล์ Function)
 =======
 >>>>>>> parent of 06c0c4d (Update แยกไฟล์ Function)
 /* USER CODE END PD */
@@ -77,8 +80,11 @@ UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 <<<<<<< HEAD
+<<<<<<< HEAD
 /* Setup micro sec */
 =======
+=======
+>>>>>>> parent of 06c0c4d (Update แยกไฟล์ Function)
 /////////////////////////
 arm_status Kalmanstatus;
 // Matrix A
@@ -212,6 +218,7 @@ float32_t PositionRad = 0;
 int PWMC = 250;
 uint8_t check = 0;
 <<<<<<< HEAD
+<<<<<<< HEAD
 /* Initialise Kalman Filter */
 KalmanFilterVar KalmanVar = {
 		{1 , dt , 0.5*dt*dt,0 , 1 , dt,0 , 0 , 1},
@@ -246,6 +253,9 @@ KalmanFilterVar KalmanVar = {
 		{0},
 };
 /* Initialise PID controller */
+=======
+ /* Initialise PID controller */
+>>>>>>> parent of 06c0c4d (Update แยกไฟล์ Function)
 =======
  /* Initialise PID controller */
 >>>>>>> parent of 06c0c4d (Update แยกไฟล์ Function)
@@ -314,7 +324,10 @@ int main(void)
   MX_TIM11_Init();
   /* USER CODE BEGIN 2 */
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> parent of 06c0c4d (Update แยกไฟล์ Function)
   KalmanMatrixInit();
   //////////////////////////
 >>>>>>> parent of 06c0c4d (Update แยกไฟล์ Function)

@@ -28,6 +28,7 @@ Idx Name          Size      VMA       LMA       File off  Algn
  11 .ARM.attributes 00000030  00000000  00000000  000200ec  2**0
                   CONTENTS, READONLY
 <<<<<<< HEAD
+<<<<<<< HEAD
  12 .debug_info   00012444  00000000  00000000  000203d0  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
  13 .debug_abbrev 00002880  00000000  00000000  00032814  2**0
@@ -57,6 +58,22 @@ Idx Name          Size      VMA       LMA       File off  Algn
  18 .debug_str    0008fc52  00000000  00000000  00045c50  2**0
 >>>>>>> parent of 06c0c4d (Update แยกไฟล์ Function)
                   CONTENTS, READONLY, DEBUGGING, OCTETS
+=======
+ 12 .debug_info   00012036  00000000  00000000  0002011c  2**0
+                  CONTENTS, READONLY, DEBUGGING, OCTETS
+ 13 .debug_abbrev 00002703  00000000  00000000  00032152  2**0
+                  CONTENTS, READONLY, DEBUGGING, OCTETS
+ 14 .debug_aranges 00000cc8  00000000  00000000  00034858  2**3
+                  CONTENTS, READONLY, DEBUGGING, OCTETS
+ 15 .debug_ranges 00000bd0  00000000  00000000  00035520  2**3
+                  CONTENTS, READONLY, DEBUGGING, OCTETS
+ 16 .debug_macro  00001a93  00000000  00000000  000360f0  2**0
+                  CONTENTS, READONLY, DEBUGGING, OCTETS
+ 17 .debug_line   0000e0cd  00000000  00000000  00037b83  2**0
+                  CONTENTS, READONLY, DEBUGGING, OCTETS
+ 18 .debug_str    0008fc52  00000000  00000000  00045c50  2**0
+                  CONTENTS, READONLY, DEBUGGING, OCTETS
+>>>>>>> parent of 06c0c4d (Update แยกไฟล์ Function)
  19 .comment      000000c5  00000000  00000000  000d58a2  2**0
                   CONTENTS, READONLY
  20 .debug_frame  00003534  00000000  00000000  000d5968  2**2
@@ -1045,6 +1062,7 @@ Disassembly of section .text:
  8000d16:	bf00      	nop
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 08000d18 <KalmanMatrixInit>:
 #include "main.h"
 #include "Kalman.h"
@@ -1597,6 +1615,9 @@ void KalmanFilterFunction(KalmanFilterVar *KalmanVar,float32_t PositionDeg)
 =======
 08000d18 <PIDController_Init>:
 >>>>>>> parent of 06c0c4d (Update แยกไฟล์ Function)
+=======
+08000d18 <PIDController_Init>:
+>>>>>>> parent of 06c0c4d (Update แยกไฟล์ Function)
 #include "PID.h"
 
 void PIDController_Init(PIDController *pid) {
@@ -1625,15 +1646,21 @@ void PIDController_Init(PIDController *pid) {
  8000d3e:	631a      	str	r2, [r3, #48]	; 0x30
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 	pid->Controllerout = 0.0f;
  800124e:	687b      	ldr	r3, [r7, #4]
  8001250:	f04f 0200 	mov.w	r2, #0
  8001254:	635a      	str	r2, [r3, #52]	; 0x34
 =======
+=======
+>>>>>>> parent of 06c0c4d (Update แยกไฟล์ Function)
 	pid->out = 0.0f;
  8000d40:	687b      	ldr	r3, [r7, #4]
  8000d42:	f04f 0200 	mov.w	r2, #0
  8000d46:	635a      	str	r2, [r3, #52]	; 0x34
+<<<<<<< HEAD
+>>>>>>> parent of 06c0c4d (Update แยกไฟล์ Function)
+=======
 >>>>>>> parent of 06c0c4d (Update แยกไฟล์ Function)
 
 }
@@ -1685,6 +1712,7 @@ int main(void)
  8000d76:	f000 f9e7 	bl	8001148 <MX_TIM11_Init>
   /* USER CODE BEGIN 2 */
 <<<<<<< HEAD
+<<<<<<< HEAD
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
  800128a:	2100      	movs	r1, #0
  800128c:	4821      	ldr	r0, [pc, #132]	; (8001314 <main+0xb0>)
@@ -1723,6 +1751,44 @@ int main(void)
   KalmanMatrixInit(&KalmanVar);
  80012c8:	4819      	ldr	r0, [pc, #100]	; (8001330 <main+0xcc>)
  80012ca:	f7ff fd25 	bl	8000d18 <KalmanMatrixInit>
+=======
+  KalmanMatrixInit();
+ 8000d7a:	f000 faa3 	bl	80012c4 <KalmanMatrixInit>
+  //////////////////////////
+  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
+ 8000d7e:	2100      	movs	r1, #0
+ 8000d80:	4820      	ldr	r0, [pc, #128]	; (8000e04 <main+0xb0>)
+ 8000d82:	f002 f88f 	bl	8002ea4 <HAL_TIM_PWM_Start>
+  HAL_TIM_Base_Start_IT (&htim11);
+ 8000d86:	4820      	ldr	r0, [pc, #128]	; (8000e08 <main+0xb4>)
+ 8000d88:	f001 ffda 	bl	8002d40 <HAL_TIM_Base_Start_IT>
+  HAL_TIM_Base_Start_IT (&htim3);
+ 8000d8c:	481f      	ldr	r0, [pc, #124]	; (8000e0c <main+0xb8>)
+ 8000d8e:	f001 ffd7 	bl	8002d40 <HAL_TIM_Base_Start_IT>
+  HAL_TIM_Encoder_Start(&htim2, TIM_CHANNEL_ALL);
+ 8000d92:	213c      	movs	r1, #60	; 0x3c
+ 8000d94:	481e      	ldr	r0, [pc, #120]	; (8000e10 <main+0xbc>)
+ 8000d96:	f002 f9db 	bl	8003150 <HAL_TIM_Encoder_Start>
+  EncoderRawData[0]=TIM2->CNT;
+ 8000d9a:	f04f 4380 	mov.w	r3, #1073741824	; 0x40000000
+ 8000d9e:	6a5b      	ldr	r3, [r3, #36]	; 0x24
+ 8000da0:	461a      	mov	r2, r3
+ 8000da2:	4b1c      	ldr	r3, [pc, #112]	; (8000e14 <main+0xc0>)
+ 8000da4:	601a      	str	r2, [r3, #0]
+  EncoderRawData[1]=EncoderRawData[0];
+ 8000da6:	4b1b      	ldr	r3, [pc, #108]	; (8000e14 <main+0xc0>)
+ 8000da8:	681b      	ldr	r3, [r3, #0]
+ 8000daa:	4a1a      	ldr	r2, [pc, #104]	; (8000e14 <main+0xc0>)
+ 8000dac:	6053      	str	r3, [r2, #4]
+  PositionRaw=EncoderRawData[0];
+ 8000dae:	4b19      	ldr	r3, [pc, #100]	; (8000e14 <main+0xc0>)
+ 8000db0:	681b      	ldr	r3, [r3, #0]
+ 8000db2:	4a19      	ldr	r2, [pc, #100]	; (8000e18 <main+0xc4>)
+ 8000db4:	6013      	str	r3, [r2, #0]
+  PIDController_Init(&pid);
+ 8000db6:	4819      	ldr	r0, [pc, #100]	; (8000e1c <main+0xc8>)
+ 8000db8:	f7ff ffae 	bl	8000d18 <PIDController_Init>
+>>>>>>> parent of 06c0c4d (Update แยกไฟล์ Function)
 =======
   KalmanMatrixInit();
  8000d7a:	f000 faa3 	bl	80012c4 <KalmanMatrixInit>
@@ -1802,6 +1868,7 @@ int main(void)
  8000dfe:	6013      	str	r3, [r2, #0]
   {
 <<<<<<< HEAD
+<<<<<<< HEAD
  8001312:	e7dc      	b.n	80012ce <main+0x6a>
  8001314:	200003bc 	.word	0x200003bc
  8001318:	20000494 	.word	0x20000494
@@ -1815,6 +1882,8 @@ int main(void)
  8001338:	20000540 	.word	0x20000540
  800133c:	001e8481 	.word	0x001e8481
 =======
+=======
+>>>>>>> parent of 06c0c4d (Update แยกไฟล์ Function)
  8000e00:	e7dc      	b.n	8000dbc <main+0x68>
  8000e02:	bf00      	nop
  8000e04:	2000010c 	.word	0x2000010c
@@ -1827,6 +1896,9 @@ int main(void)
  8000e20:	200000a0 	.word	0x200000a0
  8000e24:	20000548 	.word	0x20000548
  8000e28:	001e8481 	.word	0x001e8481
+<<<<<<< HEAD
+>>>>>>> parent of 06c0c4d (Update แยกไฟล์ Function)
+=======
 >>>>>>> parent of 06c0c4d (Update แยกไฟล์ Function)
 
 08000e2c <SystemClock_Config>:

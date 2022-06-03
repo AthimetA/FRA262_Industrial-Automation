@@ -265,7 +265,10 @@ Discarded input sections
  .data          0x0000000000000000        0x0 ./Core/Src/main.o
  .bss           0x0000000000000000        0x0 ./Core/Src/main.o
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> parent of 06c0c4d (Update แยกไฟล์ Function)
  .bss.MatU_Data
                 0x0000000000000000        0x4 ./Core/Src/main.o
  .bss.MatU      0x0000000000000000        0x8 ./Core/Src/main.o
@@ -3809,6 +3812,7 @@ LOAD b:/stm32/stm32cubeide_1.9.0/stm32cubeide/plugins/com.st.stm32cube.ide.mcu.e
 LOAD b:/stm32/stm32cubeide_1.9.0/stm32cubeide/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.10.3-2021.10.win32_1.0.0.202111181127/tools/bin/../lib/gcc/arm-none-eabi/10.3.1/thumb/v7e-m+fp/hard\libgcc.a
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 .debug_info     0x0000000000000000    0x12444
  .debug_info    0x0000000000000000      0x5f9 ./Core/Src/Kalman.o
  .debug_info    0x00000000000005f9      0x186 ./Core/Src/PID.o
@@ -3831,6 +3835,8 @@ LOAD b:/stm32/stm32cubeide_1.9.0/stm32cubeide/plugins/com.st.stm32cube.ide.mcu.e
  .debug_info    0x0000000000010d3f      0xb0c ../Middlewares/Third_Party/ARM_CMSIS/CMSIS/DSP/Lib/GCC\libarm_cortexM4lf_math.a(arm_mat_init_f32.o)
  .debug_info    0x000000000001184b      0xbf9 ../Middlewares/Third_Party/ARM_CMSIS/CMSIS/DSP/Lib/GCC\libarm_cortexM4lf_math.a(arm_mat_add_f32.o)
 =======
+=======
+>>>>>>> parent of 06c0c4d (Update แยกไฟล์ Function)
 .debug_info     0x0000000000000000    0x12036
  .debug_info    0x0000000000000000      0x186 ./Core/Src/PID.o
  .debug_info    0x0000000000000186     0x1d01 ./Core/Src/main.o
@@ -3851,6 +3857,9 @@ LOAD b:/stm32/stm32cubeide_1.9.0/stm32cubeide/plugins/com.st.stm32cube.ide.mcu.e
  .debug_info    0x000000000000fbb0      0xd81 ../Middlewares/Third_Party/ARM_CMSIS/CMSIS/DSP/Lib/GCC\libarm_cortexM4lf_math.a(arm_mat_inverse_f32.o)
  .debug_info    0x0000000000010931      0xb0c ../Middlewares/Third_Party/ARM_CMSIS/CMSIS/DSP/Lib/GCC\libarm_cortexM4lf_math.a(arm_mat_init_f32.o)
  .debug_info    0x000000000001143d      0xbf9 ../Middlewares/Third_Party/ARM_CMSIS/CMSIS/DSP/Lib/GCC\libarm_cortexM4lf_math.a(arm_mat_add_f32.o)
+<<<<<<< HEAD
+>>>>>>> parent of 06c0c4d (Update แยกไฟล์ Function)
+=======
 >>>>>>> parent of 06c0c4d (Update แยกไฟล์ Function)
 
 .debug_abbrev   0x0000000000000000     0x2703
@@ -3935,6 +3944,7 @@ LOAD b:/stm32/stm32cubeide_1.9.0/stm32cubeide/plugins/com.st.stm32cube.ide.mcu.e
  .debug_ranges  0x0000000000000bb0       0x10 ../Middlewares/Third_Party/ARM_CMSIS/CMSIS/DSP/Lib/GCC\libarm_cortexM4lf_math.a(arm_mat_init_f32.o)
  .debug_ranges  0x0000000000000bc0       0x10 ../Middlewares/Third_Party/ARM_CMSIS/CMSIS/DSP/Lib/GCC\libarm_cortexM4lf_math.a(arm_mat_add_f32.o)
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 .debug_macro    0x0000000000000000    0x16a16
  .debug_macro   0x0000000000000000      0x2e9 ./Core/Src/Kalman.o
@@ -4024,6 +4034,8 @@ LOAD b:/stm32/stm32cubeide_1.9.0/stm32cubeide/plugins/com.st.stm32cube.ide.mcu.e
  .debug_macro   0x0000000000016679      0x1ce ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim_ex.o
  .debug_macro   0x0000000000016847      0x1cf ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_uart.o
 =======
+=======
+>>>>>>> parent of 06c0c4d (Update แยกไฟล์ Function)
 .debug_macro    0x0000000000000000     0x1a93
  .debug_macro   0x0000000000000000       0x1b ./Core/Src/PID.o
  .debug_macro   0x000000000000001b      0x3f1 ./Core/Src/main.o
@@ -4051,6 +4063,9 @@ LOAD b:/stm32/stm32cubeide_1.9.0/stm32cubeide/plugins/com.st.stm32cube.ide.mcu.e
  .debug_macro   0x0000000000001527      0x1cf ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim.o
  .debug_macro   0x00000000000016f6      0x1ce ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim_ex.o
  .debug_macro   0x00000000000018c4      0x1cf ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_uart.o
+<<<<<<< HEAD
+>>>>>>> parent of 06c0c4d (Update แยกไฟล์ Function)
+=======
 >>>>>>> parent of 06c0c4d (Update แยกไฟล์ Function)
 
 .debug_line     0x0000000000000000     0xe0cd
@@ -4074,6 +4089,7 @@ LOAD b:/stm32/stm32cubeide_1.9.0/stm32cubeide/plugins/com.st.stm32cube.ide.mcu.e
  .debug_line    0x000000000000db56      0x259 ../Middlewares/Third_Party/ARM_CMSIS/CMSIS/DSP/Lib/GCC\libarm_cortexM4lf_math.a(arm_mat_init_f32.o)
  .debug_line    0x000000000000ddaf      0x31e ../Middlewares/Third_Party/ARM_CMSIS/CMSIS/DSP/Lib/GCC\libarm_cortexM4lf_math.a(arm_mat_add_f32.o)
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 .debug_str      0x0000000000000000    0x8fc9b
  .debug_str     0x0000000000000000    0x8ac61 ./Core/Src/Kalman.o
@@ -4115,6 +4131,45 @@ LOAD b:/stm32/stm32cubeide_1.9.0/stm32cubeide/plugins/com.st.stm32cube.ide.mcu.e
  .debug_str     0x000000000008fc33       0x39 ../Middlewares/Third_Party/ARM_CMSIS/CMSIS/DSP/Lib/GCC\libarm_cortexM4lf_math.a(arm_mat_init_f32.o)
                                         0x693 (size before relaxing)
  .debug_str     0x000000000008fc6c       0x2f ../Middlewares/Third_Party/ARM_CMSIS/CMSIS/DSP/Lib/GCC\libarm_cortexM4lf_math.a(arm_mat_add_f32.o)
+=======
+.debug_str      0x0000000000000000    0x8fc52
+ .debug_str     0x0000000000000000     0x2d9d ./Core/Src/PID.o
+ .debug_str     0x0000000000002d9d    0x89e19 ./Core/Src/main.o
+                                      0x8cf9e (size before relaxing)
+ .debug_str     0x000000000008cbb6      0x4fd ./Core/Src/stm32f4xx_hal_msp.o
+                                      0x8778c (size before relaxing)
+ .debug_str     0x000000000008d0b3      0x10a ./Core/Src/stm32f4xx_it.o
+                                      0x87003 (size before relaxing)
+ .debug_str     0x000000000008d1bd       0xdb ./Core/Src/system_stm32f4xx.o
+                                      0x86a61 (size before relaxing)
+ .debug_str     0x000000000008d298       0x36 ./Core/Startup/startup_stm32f411retx.o
+                                         0x6d (size before relaxing)
+ .debug_str     0x000000000008d2ce      0x5fa ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal.o
+                                      0x8748d (size before relaxing)
+ .debug_str     0x000000000008d8c8      0x323 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_cortex.o
+                                      0x871ae (size before relaxing)
+ .debug_str     0x000000000008dbeb      0x121 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_gpio.o
+                                      0x86bdc (size before relaxing)
+ .debug_str     0x000000000008dd0c      0x228 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_rcc.o
+                                      0x86e95 (size before relaxing)
+ .debug_str     0x000000000008df34      0xc1f ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim.o
+                                      0x87dc9 (size before relaxing)
+ .debug_str     0x000000000008eb53      0x3e1 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim_ex.o
+                                      0x875e5 (size before relaxing)
+ .debug_str     0x000000000008ef34      0x615 ./Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_uart.o
+                                      0x87422 (size before relaxing)
+ .debug_str     0x000000000008f549      0x547 ../Middlewares/Third_Party/ARM_CMSIS/CMSIS/DSP/Lib/GCC\libarm_cortexM4lf_math.a(arm_mat_trans_f32.o)
+                                        0x755 (size before relaxing)
+ .debug_str     0x000000000008fa90       0x57 ../Middlewares/Third_Party/ARM_CMSIS/CMSIS/DSP/Lib/GCC\libarm_cortexM4lf_math.a(arm_mat_sub_f32.o)
+                                        0x768 (size before relaxing)
+ .debug_str     0x000000000008fae7       0x5c ../Middlewares/Third_Party/ARM_CMSIS/CMSIS/DSP/Lib/GCC\libarm_cortexM4lf_math.a(arm_mat_mult_f32.o)
+                                        0x784 (size before relaxing)
+ .debug_str     0x000000000008fb43       0xa7 ../Middlewares/Third_Party/ARM_CMSIS/CMSIS/DSP/Lib/GCC\libarm_cortexM4lf_math.a(arm_mat_inverse_f32.o)
+                                        0x7c8 (size before relaxing)
+ .debug_str     0x000000000008fbea       0x39 ../Middlewares/Third_Party/ARM_CMSIS/CMSIS/DSP/Lib/GCC\libarm_cortexM4lf_math.a(arm_mat_init_f32.o)
+                                        0x693 (size before relaxing)
+ .debug_str     0x000000000008fc23       0x2f ../Middlewares/Third_Party/ARM_CMSIS/CMSIS/DSP/Lib/GCC\libarm_cortexM4lf_math.a(arm_mat_add_f32.o)
+>>>>>>> parent of 06c0c4d (Update แยกไฟล์ Function)
 =======
 .debug_str      0x0000000000000000    0x8fc52
  .debug_str     0x0000000000000000     0x2d9d ./Core/Src/PID.o
