@@ -29,7 +29,7 @@ typedef struct {
 	float prevMeasurement;		/* Required for differentiator */
 
 	/* Controller output */
-	float out;
+	float Controllerout;
 
 } PIDController;
 

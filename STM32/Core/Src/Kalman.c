@@ -32,7 +32,6 @@ void KalmanMatrixInit(KalmanFilterVar *KalmanVar)
 	  arm_mat_init_f32(&(KalmanVar ->MatGQGt), 3, 3, KalmanVar ->MatGQGt_Data);
 	  arm_mat_init_f32(&(KalmanVar ->MatSinv), 1, 1, KalmanVar ->MatSinv_Data);
 	  arm_mat_init_f32(&(KalmanVar ->MatCPk), 1, 3, KalmanVar ->MatCPk_Data);
-
 	  arm_mat_init_f32(&(KalmanVar ->MatAPk), 3, 3, KalmanVar ->MatAPk_Data);
 	  arm_mat_init_f32(&(KalmanVar ->MatAPkAt), 3, 3, KalmanVar ->MatAPkAt_Data);
 	  arm_mat_init_f32(&(KalmanVar ->MatCXk), 1, 1, KalmanVar ->MatCXk_Data);

@@ -9,7 +9,7 @@ void PIDController_Init(PIDController *pid) {
 	pid->differentiator  = 0.0f;
 	pid->prevMeasurement = 0.0f;
 
-	pid->out = 0.0f;
+	pid->Controllerout = 0.0f;
 
 }
 
@@ -56,15 +56,15 @@ float PIDController_Update(PIDController *pid, float setpoint, float measurement
 	/*
 	* Compute output and apply limits
 	*/
-    pid->out = proportional + pid->integrator + pid->differentiator;
+    pid->Controllerout = proportional + pid->integrator + pid->differentiator;
 
-    if (pid->out > pid->limMax) {
+    if (pid->Controllerout > pid->limMax) {
 
-        pid->out = pid->limMax;
+        pid->Controllerout = pid->limMax;
 
-    } else if (pid->out < pid->limMin) {
+    } else if (pid->Controllerout < pid->limMin) {
 
-        pid->out = pid->limMin;
+        pid->Controllerout = pid->limMin;
 
     }
 
@@ -73,6 +73,6 @@ float PIDController_Update(PIDController *pid, float setpoint, float measurement
     pid->prevMeasurement = measurement;
 
 	/* Return controller output */
-    return pid->out;
+    return pid->Controllerout;
 
 }

@@ -27,19 +27,19 @@ Idx Name          Size      VMA       LMA       File off  Algn
                   ALLOC
  11 .ARM.attributes 00000030  00000000  00000000  000203a0  2**0
                   CONTENTS, READONLY
- 12 .debug_info   00012466  00000000  00000000  000203d0  2**0
+ 12 .debug_info   00012444  00000000  00000000  000203d0  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 13 .debug_abbrev 00002880  00000000  00000000  00032836  2**0
+ 13 .debug_abbrev 00002880  00000000  00000000  00032814  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 14 .debug_aranges 00000ce0  00000000  00000000  000350b8  2**3
+ 14 .debug_aranges 00000ce0  00000000  00000000  00035098  2**3
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 15 .debug_ranges 00000bd8  00000000  00000000  00035d98  2**3
+ 15 .debug_ranges 00000bd8  00000000  00000000  00035d78  2**3
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 16 .debug_macro  00016a10  00000000  00000000  00036970  2**0
+ 16 .debug_macro  00016a16  00000000  00000000  00036950  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 17 .debug_line   0000ea74  00000000  00000000  0004d380  2**0
+ 17 .debug_line   0000ea74  00000000  00000000  0004d366  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 18 .debug_str    0008fc81  00000000  00000000  0005bdf4  2**0
+ 18 .debug_str    0008fc9b  00000000  00000000  0005bdda  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
  19 .comment      000000c5  00000000  00000000  000eba75  2**0
                   CONTENTS, READONLY
@@ -1214,7 +1214,6 @@ void KalmanMatrixInit(KalmanFilterVar *KalmanVar)
  8000eb0:	2203      	movs	r2, #3
  8000eb2:	2101      	movs	r1, #1
  8000eb4:	f003 fdd8 	bl	8004a68 <arm_mat_init_f32>
-
 	  arm_mat_init_f32(&(KalmanVar ->MatAPk), 3, 3, KalmanVar ->MatAPk_Data);
  8000eb8:	687b      	ldr	r3, [r7, #4]
  8000eba:	f503 7044 	add.w	r0, r3, #784	; 0x310
@@ -1605,7 +1604,7 @@ void PIDController_Init(PIDController *pid) {
  8001248:	f04f 0200 	mov.w	r2, #0
  800124c:	631a      	str	r2, [r3, #48]	; 0x30
 
-	pid->out = 0.0f;
+	pid->Controllerout = 0.0f;
  800124e:	687b      	ldr	r3, [r7, #4]
  8001250:	f04f 0200 	mov.w	r2, #0
  8001254:	635a      	str	r2, [r3, #52]	; 0x34
@@ -1659,43 +1658,44 @@ int main(void)
   MX_TIM11_Init();
  8001286:	f000 f9e9 	bl	800165c <MX_TIM11_Init>
   /* USER CODE BEGIN 2 */
-  KalmanMatrixInit(&KalmanVar);
- 800128a:	4822      	ldr	r0, [pc, #136]	; (8001314 <main+0xb0>)
- 800128c:	f7ff fd44 	bl	8000d18 <KalmanMatrixInit>
-  //////////////////////////
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
- 8001290:	2100      	movs	r1, #0
- 8001292:	4821      	ldr	r0, [pc, #132]	; (8001318 <main+0xb4>)
- 8001294:	f001 fe7c 	bl	8002f90 <HAL_TIM_PWM_Start>
+ 800128a:	2100      	movs	r1, #0
+ 800128c:	4821      	ldr	r0, [pc, #132]	; (8001314 <main+0xb0>)
+ 800128e:	f001 fe7f 	bl	8002f90 <HAL_TIM_PWM_Start>
   HAL_TIM_Base_Start_IT (&htim11);
+ 8001292:	4821      	ldr	r0, [pc, #132]	; (8001318 <main+0xb4>)
+ 8001294:	f001 fdca 	bl	8002e2c <HAL_TIM_Base_Start_IT>
+  HAL_TIM_Base_Start_IT (&htim3);
  8001298:	4820      	ldr	r0, [pc, #128]	; (800131c <main+0xb8>)
  800129a:	f001 fdc7 	bl	8002e2c <HAL_TIM_Base_Start_IT>
-  HAL_TIM_Base_Start_IT (&htim3);
- 800129e:	4820      	ldr	r0, [pc, #128]	; (8001320 <main+0xbc>)
- 80012a0:	f001 fdc4 	bl	8002e2c <HAL_TIM_Base_Start_IT>
   HAL_TIM_Encoder_Start(&htim2, TIM_CHANNEL_ALL);
- 80012a4:	213c      	movs	r1, #60	; 0x3c
- 80012a6:	481f      	ldr	r0, [pc, #124]	; (8001324 <main+0xc0>)
- 80012a8:	f001 ffc8 	bl	800323c <HAL_TIM_Encoder_Start>
+ 800129e:	213c      	movs	r1, #60	; 0x3c
+ 80012a0:	481f      	ldr	r0, [pc, #124]	; (8001320 <main+0xbc>)
+ 80012a2:	f001 ffcb 	bl	800323c <HAL_TIM_Encoder_Start>
   EncoderRawData[0]=TIM2->CNT;
- 80012ac:	f04f 4380 	mov.w	r3, #1073741824	; 0x40000000
- 80012b0:	6a5b      	ldr	r3, [r3, #36]	; 0x24
- 80012b2:	461a      	mov	r2, r3
- 80012b4:	4b1c      	ldr	r3, [pc, #112]	; (8001328 <main+0xc4>)
- 80012b6:	601a      	str	r2, [r3, #0]
+ 80012a6:	f04f 4380 	mov.w	r3, #1073741824	; 0x40000000
+ 80012aa:	6a5b      	ldr	r3, [r3, #36]	; 0x24
+ 80012ac:	461a      	mov	r2, r3
+ 80012ae:	4b1d      	ldr	r3, [pc, #116]	; (8001324 <main+0xc0>)
+ 80012b0:	601a      	str	r2, [r3, #0]
   EncoderRawData[1]=EncoderRawData[0];
- 80012b8:	4b1b      	ldr	r3, [pc, #108]	; (8001328 <main+0xc4>)
- 80012ba:	681b      	ldr	r3, [r3, #0]
- 80012bc:	4a1a      	ldr	r2, [pc, #104]	; (8001328 <main+0xc4>)
- 80012be:	6053      	str	r3, [r2, #4]
+ 80012b2:	4b1c      	ldr	r3, [pc, #112]	; (8001324 <main+0xc0>)
+ 80012b4:	681b      	ldr	r3, [r3, #0]
+ 80012b6:	4a1b      	ldr	r2, [pc, #108]	; (8001324 <main+0xc0>)
+ 80012b8:	6053      	str	r3, [r2, #4]
   PositionRaw=EncoderRawData[0];
- 80012c0:	4b19      	ldr	r3, [pc, #100]	; (8001328 <main+0xc4>)
- 80012c2:	681b      	ldr	r3, [r3, #0]
- 80012c4:	4a19      	ldr	r2, [pc, #100]	; (800132c <main+0xc8>)
- 80012c6:	6013      	str	r3, [r2, #0]
+ 80012ba:	4b1a      	ldr	r3, [pc, #104]	; (8001324 <main+0xc0>)
+ 80012bc:	681b      	ldr	r3, [r3, #0]
+ 80012be:	4a1a      	ldr	r2, [pc, #104]	; (8001328 <main+0xc4>)
+ 80012c0:	6013      	str	r3, [r2, #0]
+  /* Initialise PID controller */
   PIDController_Init(&pid);
+ 80012c2:	481a      	ldr	r0, [pc, #104]	; (800132c <main+0xc8>)
+ 80012c4:	f7ff ffaf 	bl	8001226 <PIDController_Init>
+  /* Initialise Kalman Filter */
+  KalmanMatrixInit(&KalmanVar);
  80012c8:	4819      	ldr	r0, [pc, #100]	; (8001330 <main+0xcc>)
- 80012ca:	f7ff ffac 	bl	8001226 <PIDController_Init>
+ 80012ca:	f7ff fd25 	bl	8000d18 <KalmanMatrixInit>
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
@@ -1737,14 +1737,14 @@ int main(void)
  8001310:	6013      	str	r3, [r2, #0]
   {
  8001312:	e7dc      	b.n	80012ce <main+0x6a>
- 8001314:	20000004 	.word	0x20000004
- 8001318:	200003bc 	.word	0x200003bc
- 800131c:	20000494 	.word	0x20000494
- 8001320:	2000044c 	.word	0x2000044c
- 8001324:	20000404 	.word	0x20000404
- 8001328:	20000528 	.word	0x20000528
- 800132c:	20000534 	.word	0x20000534
- 8001330:	20000358 	.word	0x20000358
+ 8001314:	200003bc 	.word	0x200003bc
+ 8001318:	20000494 	.word	0x20000494
+ 800131c:	2000044c 	.word	0x2000044c
+ 8001320:	20000404 	.word	0x20000404
+ 8001324:	20000528 	.word	0x20000528
+ 8001328:	20000534 	.word	0x20000534
+ 800132c:	20000358 	.word	0x20000358
+ 8001330:	20000004 	.word	0x20000004
  8001334:	20000000 	.word	0x20000000
  8001338:	20000540 	.word	0x20000540
  800133c:	001e8481 	.word	0x001e8481

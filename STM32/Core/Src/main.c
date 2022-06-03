@@ -53,8 +53,10 @@
 /* Maximum run-time of simulation */
 #define SIMULATION_TIME_MAX 4.0f
 
+/* Kalman Filter parameters */
 #define dt  0.001f
 #define var  1.0f
+#define KalmanR 0.000001f
 
 /* USER CODE END PD */
 
@@ -72,15 +74,15 @@ TIM_HandleTypeDef htim11;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-////////////////////////
+/* Setup micro sec */
 uint64_t _micro = 0;
+/* Setup Encoder Data */
 int EncoderRawData[2] = {0};
 int WrappingStep = 0;
 int PositionRaw = 0;;
 float32_t PositionDeg = 0;
 float32_t PositionRad = 0;
-
-float angle[2] = {0};
+/* Setup Motor PWM */
 int PWMC = 250;
 uint8_t check = 0;
 /* Initialise Kalman Filter */
@@ -89,18 +91,18 @@ KalmanFilterVar KalmanVar = {
 		{0,0,0},
 		{1,0,0},
 		{0},
-		{((dt*dt*dt*dt)*var)/4 , ((dt*dt*dt)*var)/2 , ((dt*dt)*var)/2,((dt*dt*dt)*var)/2 ,((dt*dt)*var), dt,((dt*dt)*var)/2 , dt, 1},
-		{0.000001},
-		{0 , 0 , ((dt*dt*dt))/6,0 , 0 , ((dt*dt))/2,0 , 0 , dt},
+		{((dt*dt*dt*dt)*var)/4,((dt*dt*dt)*var)/2,((dt*dt)*var)/2,((dt*dt*dt)*var)/2,((dt*dt)*var),dt,((dt*dt)*var)/2,dt,1},
+		{KalmanR},
+		{0,0,((dt*dt*dt))/6,0, 0,((dt*dt))/2,0,0,dt},
 		{0,0,0},
 		{0,0,0},
-		{0 , 0 , 0,0 , 0 , 0,0 , 0 , 0},
-		{0 , 0 , 0,0 , 0 , 0,0 , 0 , 0},
+		{0,0,0,0,0,0,0,0,0},
+		{0,0,0,0,0,0,0,0,0},
 		{0},
 		{0},
 		{0},
 		{0,0,0},
-		{1 , 0 , 0,0 , 1 , 0, 0 , 0 , 1},
+		{1,0,0,0,1,0,0,0,1},
 		{0},
 		{0},
 		{0},
@@ -179,8 +181,6 @@ int main(void)
   MX_TIM3_Init();
   MX_TIM11_Init();
   /* USER CODE BEGIN 2 */
-  KalmanMatrixInit(&KalmanVar);
-  //////////////////////////
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
   HAL_TIM_Base_Start_IT (&htim11);
   HAL_TIM_Base_Start_IT (&htim3);
@@ -188,7 +188,10 @@ int main(void)
   EncoderRawData[0]=TIM2->CNT;
   EncoderRawData[1]=EncoderRawData[0];
   PositionRaw=EncoderRawData[0];
+  /* Initialise PID controller */
   PIDController_Init(&pid);
+  /* Initialise Kalman Filter */
+  KalmanMatrixInit(&KalmanVar);
   /* USER CODE END 2 */
 
   /* Infinite loop */
