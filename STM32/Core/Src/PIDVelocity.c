@@ -5,6 +5,7 @@
  *      Author: mobil
  */
 
+#include "PIDVelocity.h"
 void  PIDVelocityController_Init(PIDVelocityController *pidVelocity){
 
 	pidVelocity->Last1Error = 0.0f;
