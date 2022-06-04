@@ -27,25 +27,25 @@ Idx Name          Size      VMA       LMA       File off  Algn
                   ALLOC
  11 .ARM.attributes 00000030  00000000  00000000  000203a4  2**0
                   CONTENTS, READONLY
- 12 .debug_info   00012454  00000000  00000000  000203d4  2**0
+ 12 .debug_info   00012466  00000000  00000000  000203d4  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 13 .debug_abbrev 00002897  00000000  00000000  00032828  2**0
+ 13 .debug_abbrev 00002897  00000000  00000000  0003283a  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 14 .debug_aranges 00000ce0  00000000  00000000  000350c0  2**3
+ 14 .debug_aranges 00000ce0  00000000  00000000  000350d8  2**3
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 15 .debug_ranges 00000bd8  00000000  00000000  00035da0  2**3
+ 15 .debug_ranges 00000bd8  00000000  00000000  00035db8  2**3
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 16 .debug_macro  00016a10  00000000  00000000  00036978  2**0
+ 16 .debug_macro  00016a0a  00000000  00000000  00036990  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 17 .debug_line   0000ea78  00000000  00000000  0004d388  2**0
+ 17 .debug_line   0000ea76  00000000  00000000  0004d39a  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 18 .debug_str    0008fc83  00000000  00000000  0005be00  2**0
+ 18 .debug_str    0008fc77  00000000  00000000  0005be10  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 19 .comment      000000c5  00000000  00000000  000eba83  2**0
+ 19 .comment      000000c5  00000000  00000000  000eba87  2**0
                   CONTENTS, READONLY
- 20 .debug_frame  0000355c  00000000  00000000  000ebb48  2**2
+ 20 .debug_frame  0000355c  00000000  00000000  000ebb4c  2**2
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 21 .debug_loc    000016fd  00000000  00000000  000ef0a4  2**0
+ 21 .debug_loc    000016fd  00000000  00000000  000ef0a8  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
 
 Disassembly of section .text:
@@ -1853,50 +1853,54 @@ int main(void)
   MX_TIM11_Init();
  800140e:	f000 f9ed 	bl	80017ec <MX_TIM11_Init>
   /* USER CODE BEGIN 2 */
-  KalmanMatrixInit(&KalmanVar);
- 8001412:	4824      	ldr	r0, [pc, #144]	; (80014a4 <main+0xb8>)
- 8001414:	f7ff fc80 	bl	8000d18 <KalmanMatrixInit>
   //////////////////////////
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
- 8001418:	2100      	movs	r1, #0
- 800141a:	4823      	ldr	r0, [pc, #140]	; (80014a8 <main+0xbc>)
- 800141c:	f001 fe94 	bl	8003148 <HAL_TIM_PWM_Start>
+ 8001412:	2100      	movs	r1, #0
+ 8001414:	4823      	ldr	r0, [pc, #140]	; (80014a4 <main+0xb8>)
+ 8001416:	f001 fe97 	bl	8003148 <HAL_TIM_PWM_Start>
   HAL_TIM_Base_Start_IT (&htim11);
+ 800141a:	4823      	ldr	r0, [pc, #140]	; (80014a8 <main+0xbc>)
+ 800141c:	f001 fde2 	bl	8002fe4 <HAL_TIM_Base_Start_IT>
+  HAL_TIM_Base_Start_IT (&htim3);
  8001420:	4822      	ldr	r0, [pc, #136]	; (80014ac <main+0xc0>)
  8001422:	f001 fddf 	bl	8002fe4 <HAL_TIM_Base_Start_IT>
-  HAL_TIM_Base_Start_IT (&htim3);
- 8001426:	4822      	ldr	r0, [pc, #136]	; (80014b0 <main+0xc4>)
- 8001428:	f001 fddc 	bl	8002fe4 <HAL_TIM_Base_Start_IT>
   HAL_TIM_Encoder_Start(&htim2, TIM_CHANNEL_ALL);
- 800142c:	213c      	movs	r1, #60	; 0x3c
+ 8001426:	213c      	movs	r1, #60	; 0x3c
+ 8001428:	4821      	ldr	r0, [pc, #132]	; (80014b0 <main+0xc4>)
+ 800142a:	f001 ffe3 	bl	80033f4 <HAL_TIM_Encoder_Start>
+  //////////////////////////
+  KalmanMatrixInit(&KalmanVar);
  800142e:	4821      	ldr	r0, [pc, #132]	; (80014b4 <main+0xc8>)
- 8001430:	f001 ffe0 	bl	80033f4 <HAL_TIM_Encoder_Start>
-  EncoderRawData[0]=TIM2->CNT;
- 8001434:	f04f 4380 	mov.w	r3, #1073741824	; 0x40000000
- 8001438:	6a5b      	ldr	r3, [r3, #36]	; 0x24
- 800143a:	461a      	mov	r2, r3
- 800143c:	4b1e      	ldr	r3, [pc, #120]	; (80014b8 <main+0xcc>)
- 800143e:	601a      	str	r2, [r3, #0]
-  EncoderRawData[1]=EncoderRawData[0];
- 8001440:	4b1d      	ldr	r3, [pc, #116]	; (80014b8 <main+0xcc>)
- 8001442:	681b      	ldr	r3, [r3, #0]
- 8001444:	4a1c      	ldr	r2, [pc, #112]	; (80014b8 <main+0xcc>)
- 8001446:	6053      	str	r3, [r2, #4]
-  PositionRaw=EncoderRawData[0];
- 8001448:	4b1b      	ldr	r3, [pc, #108]	; (80014b8 <main+0xcc>)
- 800144a:	681b      	ldr	r3, [r3, #0]
- 800144c:	4a1b      	ldr	r2, [pc, #108]	; (80014bc <main+0xd0>)
- 800144e:	6013      	str	r3, [r2, #0]
+ 8001430:	f7ff fc72 	bl	8000d18 <KalmanMatrixInit>
+  //////////////////////////
   PIDController_Init(&pid);
- 8001450:	481b      	ldr	r0, [pc, #108]	; (80014c0 <main+0xd4>)
- 8001452:	f7ff fee8 	bl	8001226 <PIDController_Init>
+ 8001434:	4820      	ldr	r0, [pc, #128]	; (80014b8 <main+0xcc>)
+ 8001436:	f7ff fef6 	bl	8001226 <PIDController_Init>
+//  PIDVelocityController_Init(&pidVelo);
+  //////////////////////////
+  EncoderRawData[0]=TIM2->CNT;
+ 800143a:	f04f 4380 	mov.w	r3, #1073741824	; 0x40000000
+ 800143e:	6a5b      	ldr	r3, [r3, #36]	; 0x24
+ 8001440:	461a      	mov	r2, r3
+ 8001442:	4b1e      	ldr	r3, [pc, #120]	; (80014bc <main+0xd0>)
+ 8001444:	601a      	str	r2, [r3, #0]
+  EncoderRawData[1]=EncoderRawData[0];
+ 8001446:	4b1d      	ldr	r3, [pc, #116]	; (80014bc <main+0xd0>)
+ 8001448:	681b      	ldr	r3, [r3, #0]
+ 800144a:	4a1c      	ldr	r2, [pc, #112]	; (80014bc <main+0xd0>)
+ 800144c:	6053      	str	r3, [r2, #4]
+  PositionRaw=EncoderRawData[0];
+ 800144e:	4b1b      	ldr	r3, [pc, #108]	; (80014bc <main+0xd0>)
+ 8001450:	681b      	ldr	r3, [r3, #0]
+ 8001452:	4a1b      	ldr	r2, [pc, #108]	; (80014c0 <main+0xd4>)
+ 8001454:	6013      	str	r3, [r2, #0]
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
 	  Drivemotor(pid.out);
- 8001456:	4b1a      	ldr	r3, [pc, #104]	; (80014c0 <main+0xd4>)
+ 8001456:	4b18      	ldr	r3, [pc, #96]	; (80014b8 <main+0xcc>)
  8001458:	edd3 7a0d 	vldr	s15, [r3, #52]	; 0x34
  800145c:	eefd 7ae7 	vcvt.s32.f32	s15, s15
  8001460:	ee17 0a90 	vmov	r0, s15
@@ -1932,14 +1936,14 @@ int main(void)
  80014a0:	6013      	str	r3, [r2, #0]
   {
  80014a2:	e7d8      	b.n	8001456 <main+0x6a>
- 80014a4:	20000000 	.word	0x20000000
- 80014a8:	200003c4 	.word	0x200003c4
- 80014ac:	2000049c 	.word	0x2000049c
- 80014b0:	20000454 	.word	0x20000454
- 80014b4:	2000040c 	.word	0x2000040c
- 80014b8:	20000530 	.word	0x20000530
- 80014bc:	2000053c 	.word	0x2000053c
- 80014c0:	20000354 	.word	0x20000354
+ 80014a4:	200003c4 	.word	0x200003c4
+ 80014a8:	2000049c 	.word	0x2000049c
+ 80014ac:	20000454 	.word	0x20000454
+ 80014b0:	2000040c 	.word	0x2000040c
+ 80014b4:	20000000 	.word	0x20000000
+ 80014b8:	20000354 	.word	0x20000354
+ 80014bc:	20000530 	.word	0x20000530
+ 80014c0:	2000053c 	.word	0x2000053c
  80014c4:	20000548 	.word	0x20000548
  80014c8:	001e8481 	.word	0x001e8481
  80014cc:	20000390 	.word	0x20000390
@@ -3044,6 +3048,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
  8001bae:	eeb0 0a67 	vmov.f32	s0, s15
  8001bb2:	4809      	ldr	r0, [pc, #36]	; (8001bd8 <HAL_TIM_PeriodElapsedCallback+0x7c>)
  8001bb4:	f7ff fb55 	bl	8001262 <PIDController_Update>
+//		PIDVelocityController_Update(&pidVelo,setpointVelo,KalmanVar.MatState_Data[1]);
 		}
 }
  8001bb8:	bf00      	nop

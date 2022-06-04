@@ -25,6 +25,7 @@
 #include <string.h>
 #include "PID.h"
 #include "Kalman.h"
+//#include "PIDVelocity.h"
 #include "arm_math.h"
 /* USER CODE END Includes */
 
@@ -35,9 +36,11 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-/* Controller,Kalman parameters */
+/* Sampling Time*/
 #define dt  0.001f
+/* Kalman parameters */
 #define Kalmanvar  1.0f
+/* PID Position parameters */
 #define PID_KP  50.0f
 #define PID_KI  0.0f
 #define PID_KD  0.0f
@@ -46,8 +49,12 @@
 #define PID_LIM_MAX  10000.0f
 #define PID_LIM_MIN_INT -10000.0f
 #define PID_LIM_MAX_INT  10000.0f
-/* Maximum run-time of simulation */
-#define SIMULATION_TIME_MAX 4.0f
+/* PID Velocity parameters */
+//#define PIDVLEO_KP 1.0f
+//#define PIDVLEO_KI  0.0f
+//#define PIDVLEO_KD  0.0f
+//#define PIDVLEO_OUT_MIN -10000.0f
+//#define PIDVLEO_OUT_MAX  10000.0f
 /* PWM MAX parameters */
 #define PWM_MAX 10000
 /* USER CODE END PD */
@@ -107,14 +114,19 @@ KalmanFilterVar KalmanVar = {
 		{0},
 		{0},
 };
-/* Initialise PID controller */
+/* Initialise PID Position controller */
 PIDController pid = { PID_KP, PID_KI, PID_KD,
 					  PID_TAU,
 					  PID_LIM_MIN, PID_LIM_MAX,
-		  PID_LIM_MIN_INT, PID_LIM_MAX_INT,
-		  dt };
+					  PID_LIM_MIN_INT, PID_LIM_MAX_INT,
+					  dt };
+/* Initialise PID Velocity controller */
+//PIDVelocityController pidVelo = { PIDVLEO_KP, PIDVLEO_KI, PIDVLEO_KD,
+//								PIDVLEO_OUT_MIN,PIDVLEO_OUT_MAX,
+//								dt};
 /* Simulate response using test system */
 float setpoint = 180.0f;
+float setpointVelo = 90.0f;
 int32_t PWMC = 2500;
 /* USER CODE END PV */
 
@@ -172,16 +184,21 @@ int main(void)
   MX_TIM3_Init();
   MX_TIM11_Init();
   /* USER CODE BEGIN 2 */
-  KalmanMatrixInit(&KalmanVar);
   //////////////////////////
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
   HAL_TIM_Base_Start_IT (&htim11);
   HAL_TIM_Base_Start_IT (&htim3);
   HAL_TIM_Encoder_Start(&htim2, TIM_CHANNEL_ALL);
+  //////////////////////////
+  KalmanMatrixInit(&KalmanVar);
+  //////////////////////////
+  PIDController_Init(&pid);
+//  PIDVelocityController_Init(&pidVelo);
+  //////////////////////////
   EncoderRawData[0]=TIM2->CNT;
   EncoderRawData[1]=EncoderRawData[0];
   PositionRaw=EncoderRawData[0];
-  PIDController_Init(&pid);
+  //////////////////////////
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -555,6 +572,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 		EncoderRead();
 		KalmanFilterFunction(&KalmanVar,PositionDeg);
 		PIDController_Update(&pid, setpoint, KalmanVar.MatState_Data[0]);
+//		PIDVelocityController_Update(&pidVelo,setpointVelo,KalmanVar.MatState_Data[1]);
 		}
 }
 

@@ -4,6 +4,7 @@
  *  Created on: 4 Jun 2022
  *      Author: mobil
  */
+#include "PIDVelocity.h"
 
 void  PIDVelocityController_Init(PIDVelocityController *pidVelocity){
 
@@ -52,5 +53,8 @@ float PIDVelocityController_Update(PIDVelocityController *pidVelocity, float set
     pidVelocity->ControllerLastOut = pidVelocity->ControllerOut;
 	pidVelocity->Last1Error = error;
 	pidVelocity->Last2Error = pidVelocity->Last1Error;
+
+	// Return controller output
+    return pidVelocity->ControllerOut;
 
 }
