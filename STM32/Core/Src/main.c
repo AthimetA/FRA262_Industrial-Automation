@@ -38,12 +38,12 @@
 /* Controller,Kalman parameters */
 #define dt  0.001f
 #define Kalmanvar  1.0f
-#define PID_KP  30.0f
+#define PID_KP  50.0f
 #define PID_KI  0.0f
 #define PID_KD  0.0f
 #define PID_TAU 0.0f
-#define PID_LIM_MIN -8000.0f
-#define PID_LIM_MAX  8000.0f
+#define PID_LIM_MIN -10000.0f
+#define PID_LIM_MAX  10000.0f
 #define PID_LIM_MIN_INT -10000.0f
 #define PID_LIM_MAX_INT  10000.0f
 /* Maximum run-time of simulation */
@@ -114,7 +114,7 @@ PIDController pid = { PID_KP, PID_KI, PID_KD,
 		  PID_LIM_MIN_INT, PID_LIM_MAX_INT,
 		  dt };
 /* Simulate response using test system */
-float setpoint = -180.0f;
+float setpoint = 180.0f;
 int32_t PWMC = 2500;
 /* USER CODE END PV */
 
