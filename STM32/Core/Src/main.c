@@ -39,9 +39,9 @@
 /* USER CODE BEGIN PD */
 /* Controller,Kalman parameters */
 #define dt  0.001f
-#define Kalmanvar  1.0f
-#define PID_KP  80.0f
-#define PID_KI  0.0f
+#define Kalmanvar  500.0f
+#define PID_KP  3.35f
+#define PID_KI  105.0f
 #define PID_KD  0.0f
 #define PID_TAU 0.0f
 #define PID_LIM_MIN -10000.0f
@@ -49,7 +49,7 @@
 #define PID_LIM_MIN_INT -10000.0f
 #define PID_LIM_MAX_INT  10000.0f
 /* Controller,Kalman parameters */
-#define PIDVELO_KP  2.35f
+#define PIDVELO_KP  3.35f
 #define PIDVELO_KI  105.0f
 #define PIDVELO_KD  0.0f
 /* PWM MAX parameters */
@@ -68,6 +68,7 @@
  TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
+TIM_HandleTypeDef htim4;
 TIM_HandleTypeDef htim11;
 
 UART_HandleTypeDef huart2;
@@ -78,7 +79,7 @@ uint64_t _micro = 0;
 /* Setup EncoderData */
 int EncoderRawData[2] = {0};
 int WrappingStep = 0;
-int PositionRaw = 0;;
+int PositionRaw = 0;
 float32_t PositionDeg = 0;
 float32_t PositionRad = 0;
 /* Initialise Kalman Filter */
@@ -92,8 +93,8 @@ KalmanFilterVar KalmanVar = {
 		{0 , 0 , ((dt*dt*dt))/6,0 , 0 , ((dt*dt))/2,0 , 0 , dt},
 		{0,0,0},
 		{0,0,0},
-		{0 , 0 , 0,0 , 0 , 0,0 , 0 , 0},
-		{0 , 0 , 0,0 , 0 , 0,0 , 0 , 0},
+		{0,0,0,0,0,0,0,0,0},
+		{0,0,0,0,0,0,0,0,0},
 		{0},
 		{0},
 		{0},
@@ -142,6 +143,7 @@ static void MX_TIM1_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_TIM11_Init(void);
+static void MX_TIM4_Init(void);
 /* USER CODE BEGIN PFP */
 uint64_t Micros();
 uint32_t PWMAbs(int32_t PWM);
@@ -187,6 +189,7 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM3_Init();
   MX_TIM11_Init();
+  MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
   KalmanMatrixInit(&KalmanVar);
   //////////////////////////
@@ -428,6 +431,51 @@ static void MX_TIM3_Init(void)
 }
 
 /**
+  * @brief TIM4 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM4_Init(void)
+{
+
+  /* USER CODE BEGIN TIM4_Init 0 */
+
+  /* USER CODE END TIM4_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM4_Init 1 */
+
+  /* USER CODE END TIM4_Init 1 */
+  htim4.Instance = TIM4;
+  htim4.Init.Prescaler = 9;
+  htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim4.Init.Period = 999;
+  htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim4, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim4, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM4_Init 2 */
+
+  /* USER CODE END TIM4_Init 2 */
+
+}
+
+/**
   * @brief TIM11 Initialization Function
   * @param None
   * @retval None
@@ -574,15 +622,16 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	if (htim == &htim3) {
 		EncoderRead();
 		KalmanFilterFunction(&KalmanVar,PositionDeg);
-//		PIDController_Update(&pid, setpoint, KalmanVar.MatState_Data[0]);
 		if (flagT == 0)
 		{
 			StartTime = Micros();
 			flagT =1;
 		}
 		CurrentTime = Micros();
-		timeC = (CurrentTime - StartTime)/1000000.0;
-		setpoint = TrajectoryEvaluation(&traject,timeC);
+//		timeC = (CurrentTime - StartTime)/1000000.0;
+		setpoint = TrajectoryEvaluation(&traject,StartTime,CurrentTime);
+//		setpoint = 20.0;
+		PIDController_Update(&pid, setpoint, KalmanVar.MatState_Data[1]);
 //		PIDVelocityController_Update(&PidVelo, setpoint, KalmanVar.MatState_Data[1]);
 		}
 }

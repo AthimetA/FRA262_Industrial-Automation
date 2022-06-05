@@ -46,6 +46,6 @@ typedef struct {
 
 float VmaxOptimization(float Qinitial, float Qfinal);
 void CoefficientAndTimeCalculation(TrajectoryG *traject, float Qinitial, float Qfinal);
-float TrajectoryEvaluation(TrajectoryG *traject , float t);
+float TrajectoryEvaluation(TrajectoryG *traject , uint64_t StartTime, uint64_t CurrentTime);
 
 #endif /* INC_TRAJECTORY_H_ */

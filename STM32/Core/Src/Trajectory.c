@@ -110,7 +110,10 @@ void CoefficientAndTimeCalculation(TrajectoryG *traject, float Qinitial, float Q
 }
 
 
-float TrajectoryEvaluation(TrajectoryG *traject , float t){
+float TrajectoryEvaluation(TrajectoryG *traject , uint64_t StartTime, uint64_t CurrentTime){
+	// Microsec to sec
+	static float t = 0;
+	t  = (CurrentTime - StartTime)/1000000.0;
 
 	if(t >= 0 && t < traject -> T[0])
 	{
@@ -169,5 +172,5 @@ float TrajectoryEvaluation(TrajectoryG *traject , float t){
 		traject -> QX = 0;
 	}
 
-	return traject -> QX;
+	return traject -> QV;
 }
