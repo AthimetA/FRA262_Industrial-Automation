@@ -39,11 +39,11 @@
 /* USER CODE BEGIN PD */
 /* Controller,Kalman parameters */
 #define dt  0.001f
-#define Kalmanvar  500.0f
-#define PID_KP  3.35f
-#define PID_KI  105.0f
-#define PID_KD  0.0f
-#define PID_TAU 0.0f
+#define Kalmanvar  100.0f
+#define PID_KP  5.0f
+#define PID_KI  1.0f
+#define PID_KD  0.01f
+#define PID_TAU 0.005f
 #define PID_LIM_MIN -10000.0f
 #define PID_LIM_MAX  10000.0f
 #define PID_LIM_MIN_INT -10000.0f
@@ -81,6 +81,7 @@ int EncoderRawData[2] = {0};
 int WrappingStep = 0;
 int PositionRaw = 0;
 float32_t PositionDeg = 0;
+float32_t VelocityDeg = 0;
 float32_t PositionRad = 0;
 /* Initialise Kalman Filter */
 KalmanFilterVar KalmanVar = {
@@ -95,6 +96,7 @@ KalmanFilterVar KalmanVar = {
 		{0,0,0},
 		{0,0,0,0,0,0,0,0,0},
 		{0,0,0,0,0,0,0,0,0},
+//		{1,1,1,1,1,1,1,1,1},
 		{0},
 		{0},
 		{0},
@@ -203,15 +205,15 @@ int main(void)
   PIDController_Init(&pid);
   PIDVelocityController_Init(&PidVelo);
 
-  CoefficientAndTimeCalculation(&traject,0.0,360.0);
+  CoefficientAndTimeCalculation(&traject,0.0,60.0);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-//	  Drivemotor(PidVelo.ControllerOut);
-	  Drivemotor(pid.out);
+	  Drivemotor(PidVelo.ControllerOut);
+//	  Drivemotor(pid.out);
 	  static int timeStamp2 = 0;
 	  if (Micros() - timeStamp2 > 2000000)
 	  {
@@ -586,6 +588,7 @@ void EncoderRead()
 	PositionRaw = EncoderRawData[0] + WrappingStep;
 	PositionRad = (PositionRaw/12000.0)*2.0*3.14;
 	PositionDeg = (PositionRaw/12000.0)*360.0;
+	VelocityDeg = (((EncoderRawData[0] - EncoderRawData[1])/dt)/12000.0)*360.0;
 	EncoderRawData[1] = EncoderRawData[0];
 }
 
@@ -631,8 +634,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 //		timeC = (CurrentTime - StartTime)/1000000.0;
 		setpoint = TrajectoryEvaluation(&traject,StartTime,CurrentTime);
 //		setpoint = 20.0;
-		PIDController_Update(&pid, setpoint, KalmanVar.MatState_Data[1]);
-//		PIDVelocityController_Update(&PidVelo, setpoint, KalmanVar.MatState_Data[1]);
+		PIDController_Update(&pid, traject.QX, KalmanVar.MatState_Data[0]);
+		PIDVelocityController_Update(&PidVelo, traject.QV + pid.out, KalmanVar.MatState_Data[1]);
 		}
 }
 

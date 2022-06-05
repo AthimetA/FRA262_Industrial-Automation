@@ -169,7 +169,7 @@ float TrajectoryEvaluation(TrajectoryG *traject , uint64_t StartTime, uint64_t C
 		traject -> QJ = 0;
 		traject -> QA = 0;
 		traject -> QV = 0;
-		traject -> QX = 0;
+		traject -> QX = traject -> Qfinal;
 	}
 
 	return traject -> QV;
