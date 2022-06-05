@@ -110,6 +110,64 @@ void CoefficientAndTimeCalculation(TrajectoryG *traject, float Qinitial, float Q
 }
 
 
-float TrajectoryEvaluation(TrajectoryG *traject , uint64_t t){
+float TrajectoryEvaluation(TrajectoryG *traject , float t){
 
+	if(t >= 0 && t < traject -> T[0])
+	{
+		traject -> QJ = traject -> A[0];
+		traject -> QA = traject -> A[0]*t + traject -> B[0];
+		traject -> QV = traject -> A[0]*(t*t)/2 + traject -> B[0]*t + traject -> C[0];
+		traject -> QX = traject -> A[0]*(t*t*t)/6 + traject -> B[0]*(t*t)/2 + traject -> C[0]*t + traject -> D[0];
+	}
+	else if( t >= traject -> T[0] && t < traject -> T[1])
+	{
+		traject -> QJ = traject -> A[1];
+		traject -> QA = traject -> A[1]*t + traject -> B[1];
+		traject -> QV = traject -> A[1]*(t*t)/2 + traject -> B[1]*t + traject -> C[1];
+		traject -> QX = traject -> A[1]*(t*t*t)/6 + traject -> B[1]*(t*t)/2 + traject -> C[1]*t + traject -> D[1];
+	}
+	else if( t >= traject -> T[1] && t < traject -> T[2])
+	{
+		traject -> QJ = traject -> A[2];
+		traject -> QA = traject -> A[2]*t + traject -> B[2];
+		traject -> QV = traject -> A[2]*(t*t)/2 + traject -> B[2]*t + traject -> C[2];
+		traject -> QX = traject -> A[2]*(t*t*t)/6 + traject -> B[2]*(t*t)/2 + traject -> C[2]*t + traject -> D[2];
+	}
+	else if( t >= traject -> T[2] && t < traject -> T[3])
+	{
+		traject -> QJ = traject -> A[3];
+		traject -> QA = traject -> A[3]*t + traject -> B[3];
+		traject -> QV = traject -> A[3]*(t*t)/2 + traject -> B[3]*t + traject -> C[3];
+		traject -> QX = traject -> A[3]*(t*t*t)/6 + traject -> B[3]*(t*t)/2 + traject -> C[3]*t + traject -> D[3];
+	}
+	else if( t >= traject -> T[3] && t < traject -> T[4])
+	{
+		traject -> QJ = traject -> A[4];
+		traject -> QA = traject -> A[4]*t + traject -> B[4];
+		traject -> QV = traject -> A[4]*(t*t)/2 + traject -> B[4]*t + traject -> C[4];
+		traject -> QX = traject -> A[4]*(t*t*t)/6 + traject -> B[4]*(t*t)/2 + traject -> C[4]*t + traject -> D[4];
+	}
+	else if( t >= traject -> T[4] && t < traject -> T[5])
+	{
+		traject -> QJ = traject -> A[5];
+		traject -> QA = traject -> A[5]*t + traject -> B[5];
+		traject -> QV = traject -> A[5]*(t*t)/2 + traject -> B[5]*t + traject -> C[5];
+		traject -> QX = traject -> A[5]*(t*t*t)/6 + traject -> B[5]*(t*t)/2 + traject -> C[5]*t + traject -> D[5];
+	}
+	else if( t >= traject -> T[5] && t < traject -> T[6])
+	{
+		traject -> QJ = traject -> A[6];
+		traject -> QA = traject -> A[6]*t + traject -> B[6];
+		traject -> QV = traject -> A[6]*(t*t)/2 + traject -> B[6]*t + traject -> C[6];
+		traject -> QX = traject -> A[6]*(t*t*t)/6 + traject -> B[6]*(t*t)/2 + traject -> C[6]*t + traject -> D[6];
+	}
+	else
+	{
+		traject -> QJ = 0;
+		traject -> QA = 0;
+		traject -> QV = 0;
+		traject -> QX = 0;
+	}
+
+	return traject -> QX;
 }

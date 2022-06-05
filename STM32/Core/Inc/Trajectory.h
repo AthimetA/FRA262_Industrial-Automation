@@ -8,6 +8,7 @@
 #ifndef INC_TRAJECTORY_H_
 #define INC_TRAJECTORY_H_
 
+#include "main.h"
 typedef struct {
 
 	// Max Acc
@@ -15,6 +16,9 @@ typedef struct {
 
 	// Max jerk
 	float Jmax;
+
+	// Max Velocity
+	float Vmax;
 
 	// Coefficient A
 	float A[7];
@@ -32,13 +36,16 @@ typedef struct {
 	// Final Location
 	float Qfinal;
 
-	// Max Velocity
-	float Vmax;
+	// Current Q
+	float QJ;
+	float QA;
+	float QV;
+	float QX;
 
 } TrajectoryG;
 
 float VmaxOptimization(float Qinitial, float Qfinal);
 void CoefficientAndTimeCalculation(TrajectoryG *traject, float Qinitial, float Qfinal);
-float TrajectoryEvaluation(TrajectoryG *traject , uint64_t t);
+float TrajectoryEvaluation(TrajectoryG *traject , float t);
 
 #endif /* INC_TRAJECTORY_H_ */

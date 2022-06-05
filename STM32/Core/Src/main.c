@@ -128,6 +128,10 @@ float setpoint = 360.0f;
 int32_t PWMC = 2500;
 /* Trajectory */
 TrajectoryG traject = {AMAX,JMAX};
+uint8_t flagT = 0;
+static uint64_t StartTime =0;
+static uint64_t CurrentTime =0;
+float timeC = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -570,7 +574,15 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	if (htim == &htim3) {
 		EncoderRead();
 		KalmanFilterFunction(&KalmanVar,PositionDeg);
-		PIDController_Update(&pid, setpoint, KalmanVar.MatState_Data[0]);
+//		PIDController_Update(&pid, setpoint, KalmanVar.MatState_Data[0]);
+		if (flagT == 0)
+		{
+			StartTime = Micros();
+			flagT =1;
+		}
+		CurrentTime = Micros();
+		timeC = (CurrentTime - StartTime)/1000000.0;
+		setpoint = TrajectoryEvaluation(&traject,timeC);
 //		PIDVelocityController_Update(&PidVelo, setpoint, KalmanVar.MatState_Data[1]);
 		}
 }
