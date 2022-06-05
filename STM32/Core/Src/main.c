@@ -27,6 +27,7 @@
 #include "Kalman.h"
 #include "arm_math.h"
 #include "PIDVelocity.h"
+#include "Trajectory.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -51,6 +52,9 @@
 #define PIDVELO_KP  2.35f
 #define PIDVELO_KI  105.0f
 #define PIDVELO_KD  0.0f
+/* PWM MAX parameters */
+#define AMAX 28.65f
+#define JMAX 573.0f
 /* PWM MAX parameters */
 #define PWM_MAX 10000
 /* USER CODE END PD */
@@ -122,6 +126,8 @@ PIDVelocityController PidVelo = {PIDVELO_KP,PIDVELO_KI,PIDVELO_KD,
 /* Simulate response using test system */
 float setpoint = 360.0f;
 int32_t PWMC = 2500;
+/* Trajectory */
+TrajectoryG traject = {AMAX,JMAX};
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -189,6 +195,8 @@ int main(void)
   PositionRaw=EncoderRawData[0];
   PIDController_Init(&pid);
   PIDVelocityController_Init(&PidVelo);
+
+  CoefficientAndTimeCalculation(&traject,0.0,360.0);
   /* USER CODE END 2 */
 
   /* Infinite loop */

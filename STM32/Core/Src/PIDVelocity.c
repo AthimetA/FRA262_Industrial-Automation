@@ -54,4 +54,5 @@ float PIDVelocityController_Update(PIDVelocityController *pidVelocity, float set
 	pidVelocity->Last1Error = error;
 	pidVelocity->Last2Error = pidVelocity->Last1Error;
 
+	return pidVelocity->ControllerOut;
 }
