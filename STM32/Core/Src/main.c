@@ -39,11 +39,12 @@
 /* USER CODE BEGIN PD */
 /* Controller,Kalman parameters */
 #define dt  0.001f
+#define testDes 180.0f
 #define Kalmanvar  100.0f
-#define PID_KP  10.0f
+#define PID_KP  20.0f
 #define PID_KI  5.0f
 #define PID_KD  0.01f
-#define PID_TAU 0.005f
+#define PID_TAU 0.0005f
 #define PID_LIM_MIN -10000.0f
 #define PID_LIM_MAX  10000.0f
 #define PID_LIM_MIN_INT -10000.0f
@@ -126,6 +127,7 @@ PIDVelocityController PidVelo = {PIDVELO_KP,PIDVELO_KI,PIDVELO_KD,
 								dt};
 /* Simulate response using test system */
 float setpoint = 360.0f;
+float PositionErrorControl = 0.3f;
 int32_t PWMC = 2500;
 /* Trajectory */
 TrajectoryG traject = {AMAX,JMAX};
@@ -204,7 +206,7 @@ int main(void)
   PIDController_Init(&pid);
   PIDVelocityController_Init(&PidVelo);
 
-  CoefficientAndTimeCalculation(&traject,0.0,3.0);
+  CoefficientAndTimeCalculation(&traject,0.0,testDes);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -563,27 +565,25 @@ void Drivemotor(int32_t PWM){
 		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9,1);
 	}
 }
-
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	if (htim == &htim11) {
 		_micro += 65535;
 	}
 	if (htim == &htim3) {
 		CheckLoopStartTime = Micros();
+		  if (flagT == 0)
+		  {
+		    StartTime = Micros();
+		    flagT =1;
+		  }
+		CurrentTime = Micros();
 		EncoderRead();
 		KalmanFilterFunction(&KalmanVar,PositionDeg);
-		if (flagT == 0)
-		{
-			StartTime = Micros();
-			flagT =1;
-		}
-		CurrentTime = Micros();
-//		timeC = (CurrentTime - StartTime)/1000000.0;
 		setpoint = TrajectoryEvaluation(&traject,StartTime,CurrentTime);
-//		setpoint = 40.0;
 		PIDController_Update(&pid, traject.QX, KalmanVar.MatState_Data[0]);
 		PIDVelocityController_Update(&PidVelo, traject.QV + pid.out, KalmanVar.MatState_Data[1]);
 		Drivemotor(PidVelo.ControllerOut);
+//		timeC = (CurrentTime - StartTime)/1000000.0;
 		CheckLoopStopTime = Micros();
 		CheckLoopDiffTime = CheckLoopStopTime - CheckLoopStartTime;
 		}
