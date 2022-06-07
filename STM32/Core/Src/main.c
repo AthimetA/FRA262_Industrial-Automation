@@ -39,20 +39,16 @@
 /* USER CODE BEGIN PD */
 /* Controller,Kalman parameters */
 #define dt  0.001f
-#define testDes 1.0f
+#define testDes 2.0f
 #define Kalmanvar  1.0f
 #define PID_KP  3.0f
 #define PID_KI  0.01f
 #define PID_KD  0.0012f
-#define PID_TAU 0.0f
-#define PID_LIM_MIN -10000.0f
-#define PID_LIM_MAX  10000.0f
-#define PID_LIM_MIN_INT -10000.0f
-#define PID_LIM_MAX_INT  10000.0f
-/* Controller,Kalman parameters */
 #define PIDVELO_KP  12.0f
 #define PIDVELO_KI  1500.0f
 #define PIDVELO_KD  0.0f
+#define PID_LIM_MIN_INT -10000.0f
+#define PID_LIM_MAX_INT  10000.0f
 /* PWM MAX parameters */
 #define AMAX 28.65f
 #define JMAX 573.0f
@@ -117,11 +113,6 @@ KalmanFilterVar KalmanVar = {
 		{0},
 };
 /* Initialise PID controller */
-PIDController pid = { PID_KP, PID_KI, PID_KD,
-					  PID_TAU,
-					  PID_LIM_MIN, PID_LIM_MAX,
-		  PID_LIM_MIN_INT, PID_LIM_MAX_INT,
-		  dt };
 PIDVelocityController PidVelo = {PIDVELO_KP,PIDVELO_KI,PIDVELO_KD,
 								PID_LIM_MIN_INT,PID_LIM_MAX_INT,
 								dt};
@@ -210,7 +201,6 @@ int main(void)
   EncoderRawData[0]=TIM2->CNT;
   EncoderRawData[1]=EncoderRawData[0];
   PositionRaw=EncoderRawData[0];
-  PIDController_Init(&pid);
   PIDVelocityController_Init(&PidVelo);
   PIDVelocityController_Init(&PidPos);
 
@@ -596,24 +586,18 @@ void ControllLoopAndErrorHandler()
 	    StartTime = Micros();
 	    flagT =1;
 	  }
-		PIDVelocityController_Update(&PidPos,traject.QX, KalmanVar.MatState_Data[0]);
-//		PIDController_Update(&pid, setpoint, KalmanVar.MatState_Data[0]);
-		PIDVelocityController_Update(&PidVelo, traject.QV + PidPos.ControllerOut , KalmanVar.MatState_Data[1]);
-	    PWMCHECKER = PidVelo.ControllerOut;
+	  if(AbsVal(testDes - PositionDeg) < 0.15 && AbsVal(KalmanVar.MatState_Data[1]) < 1.0)
+	  {
+	    PWMCHECKER = 0.0;
 	    Drivemotor(PWMCHECKER);
-//	  if(AbsVal(testDes - PositionDeg) < 0.1 && AbsVal(KalmanVar.MatState_Data[1]) < 1.0)
-//	  {
-//	    PWMCHECKER = 0.0;
-//	    Drivemotor(PWMCHECKER);
-//	  }
-//	  else
-//	  {
-////	    PIDController_Update(&pid, traject.QX, KalmanVar.MatState_Data[0]);
-////	    PIDVelocityController_Update(&PidVelo, traject.QV + pid.out, KalmanVar.MatState_Data[1]);
-//	  }
-//	PIDController_Update(&pid, traject.QX, KalmanVar.MatState_Data[0]);
-//	PIDVelocityController_Update(&PidVelo, traject.QV + pid.out, KalmanVar.MatState_Data[1]);
-//	Drivemotor(PidVelo.ControllerOut);
+	  }
+	  else
+	  {
+		PIDVelocityController_Update(&PidPos,traject.QX, PositionDeg);
+		PIDVelocityController_Update(&PidVelo, traject.QV + PidPos.ControllerOut , KalmanVar.MatState_Data[1]);
+		PWMCHECKER = PidVelo.ControllerOut;
+		Drivemotor(PWMCHECKER);
+	  }
 }
 
 
