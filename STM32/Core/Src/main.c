@@ -39,18 +39,18 @@
 /* USER CODE BEGIN PD */
 /* Controller,Kalman parameters */
 #define dt  0.001f
-#define testDes 180.0f
+#define testDes 1.0f
 #define Kalmanvar  1.0f
-#define PID_KP  20.0f
-#define PID_KI  5.0f
-#define PID_KD  0.01f
-#define PID_TAU 0.0005f
+#define PID_KP  3.0f
+#define PID_KI  0.01f
+#define PID_KD  0.0012f
+#define PID_TAU 0.0f
 #define PID_LIM_MIN -10000.0f
 #define PID_LIM_MAX  10000.0f
 #define PID_LIM_MIN_INT -10000.0f
 #define PID_LIM_MAX_INT  10000.0f
 /* Controller,Kalman parameters */
-#define PIDVELO_KP  10.0f
+#define PIDVELO_KP  12.0f
 #define PIDVELO_KI  1500.0f
 #define PIDVELO_KD  0.0f
 /* PWM MAX parameters */
@@ -85,14 +85,13 @@ float32_t VelocityDeg = 0;
 float32_t PositionRad = 0;
 /* Initialise Kalman Filter */
 KalmanFilterVar KalmanVar = {
-		{1 , dt , 0.5*dt*dt,0 , 1 , dt,0 , 0 , 1},
+		{1,dt,0.5*dt*dt,0,1,dt,0,0,1},
 		{0,0,0},
 		{1,0,0},
 		{0},
-//		{((dt*dt*dt*dt)*Kalmanvar)/4 , ((dt*dt*dt)*Kalmanvar)/2 , ((dt*dt)*Kalmanvar)/2,((dt*dt*dt)*Kalmanvar)/2 ,((dt*dt)*Kalmanvar), dt,((dt*dt)*Kalmanvar)/2 , dt, 1},
 		{dt*dt*dt*dt*Kalmanvar/4,dt*dt*dt*Kalmanvar/2,dt*dt*Kalmanvar/2,dt*dt*dt*Kalmanvar/2,dt*dt*Kalmanvar,dt*Kalmanvar,dt*dt*Kalmanvar/2,dt*Kalmanvar,Kalmanvar},
-		{0.00000000001}, // Time delay = 0.1s
-		{0 , 0 , ((dt*dt*dt))/6,0 , 0 , ((dt*dt))/2,0 , 0 , dt},
+		{0.00000000001}, // Time delay = 0.1s - 0.2s
+		{0,0,((dt*dt*dt))/6,0,0,((dt*dt))/2,0,0,dt},
 		{0,0,0},
 		{0,0,0},
 		{0,0,0,0,0,0,0,0,0},
@@ -126,8 +125,12 @@ PIDController pid = { PID_KP, PID_KI, PID_KD,
 PIDVelocityController PidVelo = {PIDVELO_KP,PIDVELO_KI,PIDVELO_KD,
 								PID_LIM_MIN_INT,PID_LIM_MAX_INT,
 								dt};
+PIDVelocityController PidPos = {PID_KP, PID_KI, PID_KD,
+								PID_LIM_MIN_INT,PID_LIM_MAX_INT,
+								dt};
 /* Simulate response using test system */
-float setpoint = 360.0f;
+float setpoint = 0.0f;
+float setpointCheck = 0.0f;
 float PWMCHECKER = 0.0f;
 float PositionErrorControl = 0.3f;
 int32_t PWMC = 2500;
@@ -209,6 +212,7 @@ int main(void)
   PositionRaw=EncoderRawData[0];
   PIDController_Init(&pid);
   PIDVelocityController_Init(&PidVelo);
+  PIDVelocityController_Init(&PidPos);
 
   CoefficientAndTimeCalculation(&traject,0.0,testDes);
   /* USER CODE END 2 */
@@ -583,28 +587,30 @@ float AbsVal(float number)
 
 void ControllLoopAndErrorHandler()
 {
-
+	CurrentTime = Micros();
+	setpoint = TrajectoryEvaluation(&traject,StartTime,CurrentTime);
+	EncoderRead();
+	KalmanFilterFunction(&KalmanVar,PositionDeg);
 	  if (flagT == 0)
 	  {
 	    StartTime = Micros();
 	    flagT =1;
 	  }
-	CurrentTime = Micros();
-	setpoint = TrajectoryEvaluation(&traject,StartTime,CurrentTime);
-	EncoderRead();
-	KalmanFilterFunction(&KalmanVar,PositionDeg);
-	  if(AbsVal(testDes - PositionDeg) < 0.1 && AbsVal(KalmanVar.MatState_Data[1]) < 1.0)
-	  {
-	    PWMCHECKER = 0.0;
-	    Drivemotor(PWMCHECKER);
-	  }
-	  else
-	  {
-	    PIDController_Update(&pid, traject.QX, KalmanVar.MatState_Data[0]);
-	    PIDVelocityController_Update(&PidVelo, traject.QV + pid.out, KalmanVar.MatState_Data[1]);
+		PIDVelocityController_Update(&PidPos,traject.QX, KalmanVar.MatState_Data[0]);
+//		PIDController_Update(&pid, setpoint, KalmanVar.MatState_Data[0]);
+		PIDVelocityController_Update(&PidVelo, traject.QV + PidPos.ControllerOut , KalmanVar.MatState_Data[1]);
 	    PWMCHECKER = PidVelo.ControllerOut;
 	    Drivemotor(PWMCHECKER);
-	  }
+//	  if(AbsVal(testDes - PositionDeg) < 0.1 && AbsVal(KalmanVar.MatState_Data[1]) < 1.0)
+//	  {
+//	    PWMCHECKER = 0.0;
+//	    Drivemotor(PWMCHECKER);
+//	  }
+//	  else
+//	  {
+////	    PIDController_Update(&pid, traject.QX, KalmanVar.MatState_Data[0]);
+////	    PIDVelocityController_Update(&PidVelo, traject.QV + pid.out, KalmanVar.MatState_Data[1]);
+//	  }
 //	PIDController_Update(&pid, traject.QX, KalmanVar.MatState_Data[0]);
 //	PIDVelocityController_Update(&PidVelo, traject.QV + pid.out, KalmanVar.MatState_Data[1]);
 //	Drivemotor(PidVelo.ControllerOut);
