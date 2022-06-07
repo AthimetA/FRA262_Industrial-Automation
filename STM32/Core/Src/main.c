@@ -39,13 +39,13 @@
 /* USER CODE BEGIN PD */
 /* Controller,Kalman parameters */
 #define dt  0.001f
-#define testDes 2.0f
+#define testDes 90.0f
 #define Kalmanvar  1.0f
 #define PID_KP  3.0f
-#define PID_KI  0.01f
-#define PID_KD  0.0012f
+#define PID_KI  0.00001f
+#define PID_KD  1.2f
 #define PIDVELO_KP  12.0f
-#define PIDVELO_KI  1500.0f
+#define PIDVELO_KI  1.5f
 #define PIDVELO_KD  0.0f
 #define PID_LIM_MIN_INT -10000.0f
 #define PID_LIM_MAX_INT  10000.0f
@@ -114,11 +114,9 @@ KalmanFilterVar KalmanVar = {
 };
 /* Initialise PID controller */
 PIDVelocityController PidVelo = {PIDVELO_KP,PIDVELO_KI,PIDVELO_KD,
-								PID_LIM_MIN_INT,PID_LIM_MAX_INT,
-								dt};
+								PID_LIM_MIN_INT,PID_LIM_MAX_INT};
 PIDVelocityController PidPos = {PID_KP, PID_KI, PID_KD,
-								PID_LIM_MIN_INT,PID_LIM_MAX_INT,
-								dt};
+								PID_LIM_MIN_INT,PID_LIM_MAX_INT};
 /* Simulate response using test system */
 float setpoint = 0.0f;
 float setpointCheck = 0.0f;
@@ -538,7 +536,8 @@ void EncoderRead()
 	EncoderRawData[1] = EncoderRawData[0];
 }
 
-uint32_t PWMAbs(int32_t PWM){
+uint32_t PWMAbs(int32_t PWM)
+{
 	if(PWM<0){
 		return PWM*-1;
 	}else{

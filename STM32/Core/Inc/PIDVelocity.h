@@ -19,9 +19,6 @@ typedef struct {
 	float OutputMin;
 	float OutputMax;
 
-	/* Sample time (in seconds) */
-	float dt;
-
 	/* Controller "memory" */
 	float integratorOutput;
 	float differentiatorOutput;

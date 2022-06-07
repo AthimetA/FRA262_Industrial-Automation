@@ -27,11 +27,10 @@ float PIDVelocityController_Update(PIDVelocityController *pidVelocity, float set
 
     pidVelocity->proportionalOutput = (pidVelocity->Kp*error) - (pidVelocity->Kp * pidVelocity->Last1Error);
 
-    pidVelocity->integratorOutput = (pidVelocity->Ki * pidVelocity->dt * error);
+    pidVelocity->integratorOutput = (pidVelocity->Ki * error);
 
-    pidVelocity->differentiatorOutput = ((pidVelocity->Kd*error)/pidVelocity->dt)
-    									-((2.0 * pidVelocity->Kd * pidVelocity->Last1Error)/pidVelocity->dt)
-    									+((pidVelocity->Kd * pidVelocity->Last2Error)/pidVelocity->dt)	;
+    pidVelocity->differentiatorOutput = ((pidVelocity->Kd*error)) - ((2.0 * pidVelocity->Kd * pidVelocity->Last1Error))
+    									+((pidVelocity->Kd * pidVelocity->Last2Error))	;
 
 	// Compute output and apply limits
 
