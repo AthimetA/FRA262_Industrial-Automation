@@ -40,7 +40,7 @@
 /* Controller,Kalman parameters */
 #define dt  0.001f
 #define testDes 180.0f
-#define Kalmanvar  100.0f
+#define Kalmanvar  1.0f
 #define PID_KP  20.0f
 #define PID_KI  5.0f
 #define PID_KD  0.01f
@@ -51,7 +51,7 @@
 #define PID_LIM_MAX_INT  10000.0f
 /* Controller,Kalman parameters */
 #define PIDVELO_KP  10.0f
-#define PIDVELO_KI  900.0f
+#define PIDVELO_KI  1500.0f
 #define PIDVELO_KD  0.0f
 /* PWM MAX parameters */
 #define AMAX 28.65f
@@ -89,8 +89,9 @@ KalmanFilterVar KalmanVar = {
 		{0,0,0},
 		{1,0,0},
 		{0},
-		{((dt*dt*dt*dt)*Kalmanvar)/4 , ((dt*dt*dt)*Kalmanvar)/2 , ((dt*dt)*Kalmanvar)/2,((dt*dt*dt)*Kalmanvar)/2 ,((dt*dt)*Kalmanvar), dt,((dt*dt)*Kalmanvar)/2 , dt, 1},
-		{0.00000000001}, // Time delay = 0.5s
+//		{((dt*dt*dt*dt)*Kalmanvar)/4 , ((dt*dt*dt)*Kalmanvar)/2 , ((dt*dt)*Kalmanvar)/2,((dt*dt*dt)*Kalmanvar)/2 ,((dt*dt)*Kalmanvar), dt,((dt*dt)*Kalmanvar)/2 , dt, 1},
+		{dt*dt*dt*dt*Kalmanvar/4,dt*dt*dt*Kalmanvar/2,dt*dt*Kalmanvar/2,dt*dt*dt*Kalmanvar/2,dt*dt*Kalmanvar,dt*Kalmanvar,dt*dt*Kalmanvar/2,dt*Kalmanvar,Kalmanvar},
+		{0.00000000001}, // Time delay = 0.1s
 		{0 , 0 , ((dt*dt*dt))/6,0 , 0 , ((dt*dt))/2,0 , 0 , dt},
 		{0,0,0},
 		{0,0,0},
@@ -127,14 +128,15 @@ PIDVelocityController PidVelo = {PIDVELO_KP,PIDVELO_KI,PIDVELO_KD,
 								dt};
 /* Simulate response using test system */
 float setpoint = 360.0f;
+float PWMCHECKER = 0.0f;
 float PositionErrorControl = 0.3f;
 int32_t PWMC = 2500;
 /* Trajectory */
 TrajectoryG traject = {AMAX,JMAX};
 uint8_t flagT = 0;
+uint8_t flagC = 0;
 static uint64_t StartTime =0;
 static uint64_t CurrentTime =0;
-float timeC = 0;
 static uint64_t CheckLoopStartTime =0;
 static uint64_t CheckLoopStopTime =0;
 static uint64_t CheckLoopDiffTime =0;
@@ -153,6 +155,8 @@ uint64_t Micros();
 uint32_t PWMAbs(int32_t PWM);
 void Drivemotor(int32_t PWM);
 void EncoderRead();
+float AbsVal(float number);
+void ControllLoopAndErrorHandler();
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -541,7 +545,6 @@ void EncoderRead()
 }
 
 uint32_t PWMAbs(int32_t PWM){
-
 	if(PWM<0){
 		return PWM*-1;
 	}else{
@@ -565,25 +568,57 @@ void Drivemotor(int32_t PWM){
 		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9,1);
 	}
 }
+
+float AbsVal(float number)
+{
+  if(number<0)
+  {
+    return number*-1.0;
+  }
+  else
+  {
+    return number;
+  }
+}
+
+void ControllLoopAndErrorHandler()
+{
+
+	  if (flagT == 0)
+	  {
+	    StartTime = Micros();
+	    flagT =1;
+	  }
+	CurrentTime = Micros();
+	setpoint = TrajectoryEvaluation(&traject,StartTime,CurrentTime);
+	EncoderRead();
+	KalmanFilterFunction(&KalmanVar,PositionDeg);
+	  if(AbsVal(testDes - PositionDeg) < 0.1 && AbsVal(KalmanVar.MatState_Data[1]) < 1.0)
+	  {
+	    PWMCHECKER = 0.0;
+	    Drivemotor(PWMCHECKER);
+	  }
+	  else
+	  {
+	    PIDController_Update(&pid, traject.QX, KalmanVar.MatState_Data[0]);
+	    PIDVelocityController_Update(&PidVelo, traject.QV + pid.out, KalmanVar.MatState_Data[1]);
+	    PWMCHECKER = PidVelo.ControllerOut;
+	    Drivemotor(PWMCHECKER);
+	  }
+//	PIDController_Update(&pid, traject.QX, KalmanVar.MatState_Data[0]);
+//	PIDVelocityController_Update(&PidVelo, traject.QV + pid.out, KalmanVar.MatState_Data[1]);
+//	Drivemotor(PidVelo.ControllerOut);
+}
+
+
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	if (htim == &htim11) {
 		_micro += 65535;
 	}
 	if (htim == &htim3) {
 		CheckLoopStartTime = Micros();
-		  if (flagT == 0)
-		  {
-		    StartTime = Micros();
-		    flagT =1;
-		  }
-		CurrentTime = Micros();
-		EncoderRead();
-		KalmanFilterFunction(&KalmanVar,PositionDeg);
-		setpoint = TrajectoryEvaluation(&traject,StartTime,CurrentTime);
-		PIDController_Update(&pid, traject.QX, KalmanVar.MatState_Data[0]);
-		PIDVelocityController_Update(&PidVelo, traject.QV + pid.out, KalmanVar.MatState_Data[1]);
-		Drivemotor(PidVelo.ControllerOut);
-//		timeC = (CurrentTime - StartTime)/1000000.0;
+		//
+		ControllLoopAndErrorHandler();
 		CheckLoopStopTime = Micros();
 		CheckLoopDiffTime = CheckLoopStopTime - CheckLoopStartTime;
 		}
