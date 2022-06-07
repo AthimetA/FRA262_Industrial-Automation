@@ -40,8 +40,8 @@
 /* Controller,Kalman parameters */
 #define dt  0.001f
 #define Kalmanvar  100.0f
-#define PID_KP  5.0f
-#define PID_KI  1.0f
+#define PID_KP  10.0f
+#define PID_KI  5.0f
 #define PID_KD  0.01f
 #define PID_TAU 0.005f
 #define PID_LIM_MIN -10000.0f
@@ -49,8 +49,8 @@
 #define PID_LIM_MIN_INT -10000.0f
 #define PID_LIM_MAX_INT  10000.0f
 /* Controller,Kalman parameters */
-#define PIDVELO_KP  3.35f
-#define PIDVELO_KI  105.0f
+#define PIDVELO_KP  10.0f
+#define PIDVELO_KI  900.0f
 #define PIDVELO_KD  0.0f
 /* PWM MAX parameters */
 #define AMAX 28.65f
@@ -68,7 +68,6 @@
  TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
-TIM_HandleTypeDef htim4;
 TIM_HandleTypeDef htim11;
 
 UART_HandleTypeDef huart2;
@@ -90,18 +89,17 @@ KalmanFilterVar KalmanVar = {
 		{1,0,0},
 		{0},
 		{((dt*dt*dt*dt)*Kalmanvar)/4 , ((dt*dt*dt)*Kalmanvar)/2 , ((dt*dt)*Kalmanvar)/2,((dt*dt*dt)*Kalmanvar)/2 ,((dt*dt)*Kalmanvar), dt,((dt*dt)*Kalmanvar)/2 , dt, 1},
-		{0.000001},
+		{0.00000000001}, // Time delay = 0.5s
 		{0 , 0 , ((dt*dt*dt))/6,0 , 0 , ((dt*dt))/2,0 , 0 , dt},
 		{0,0,0},
 		{0,0,0},
 		{0,0,0,0,0,0,0,0,0},
 		{0,0,0,0,0,0,0,0,0},
-//		{1,1,1,1,1,1,1,1,1},
 		{0},
 		{0},
 		{0},
 		{0,0,0},
-		{1 , 0 , 0,0 , 1 , 0, 0 , 0 , 1},
+		{1,0,0,0,1,0,0,0,1},
 		{0},
 		{0},
 		{0},
@@ -135,6 +133,9 @@ uint8_t flagT = 0;
 static uint64_t StartTime =0;
 static uint64_t CurrentTime =0;
 float timeC = 0;
+static uint64_t CheckLoopStartTime =0;
+static uint64_t CheckLoopStopTime =0;
+static uint64_t CheckLoopDiffTime =0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -145,7 +146,6 @@ static void MX_TIM1_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_TIM11_Init(void);
-static void MX_TIM4_Init(void);
 /* USER CODE BEGIN PFP */
 uint64_t Micros();
 uint32_t PWMAbs(int32_t PWM);
@@ -191,7 +191,6 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM3_Init();
   MX_TIM11_Init();
-  MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
   KalmanMatrixInit(&KalmanVar);
   //////////////////////////
@@ -205,21 +204,13 @@ int main(void)
   PIDController_Init(&pid);
   PIDVelocityController_Init(&PidVelo);
 
-  CoefficientAndTimeCalculation(&traject,0.0,60.0);
+  CoefficientAndTimeCalculation(&traject,0.0,3.0);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  Drivemotor(PidVelo.ControllerOut);
-//	  Drivemotor(pid.out);
-	  static int timeStamp2 = 0;
-	  if (Micros() - timeStamp2 > 2000000)
-	  {
-			timeStamp2 = Micros();
-			PWMC = -1*PWMC;
-	  }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -363,11 +354,11 @@ static void MX_TIM2_Init(void)
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   sConfig.EncoderMode = TIM_ENCODERMODE_TI12;
-  sConfig.IC1Polarity = TIM_ICPOLARITY_FALLING;
+  sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
   sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
   sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
   sConfig.IC1Filter = 0;
-  sConfig.IC2Polarity = TIM_ICPOLARITY_FALLING;
+  sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
   sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
   sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
   sConfig.IC2Filter = 0;
@@ -429,51 +420,6 @@ static void MX_TIM3_Init(void)
   /* USER CODE BEGIN TIM3_Init 2 */
 
   /* USER CODE END TIM3_Init 2 */
-
-}
-
-/**
-  * @brief TIM4 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_TIM4_Init(void)
-{
-
-  /* USER CODE BEGIN TIM4_Init 0 */
-
-  /* USER CODE END TIM4_Init 0 */
-
-  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
-  TIM_MasterConfigTypeDef sMasterConfig = {0};
-
-  /* USER CODE BEGIN TIM4_Init 1 */
-
-  /* USER CODE END TIM4_Init 1 */
-  htim4.Instance = TIM4;
-  htim4.Init.Prescaler = 9;
-  htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim4.Init.Period = 999;
-  htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim4, &sClockSourceConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim4, &sMasterConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN TIM4_Init 2 */
-
-  /* USER CODE END TIM4_Init 2 */
 
 }
 
@@ -586,7 +532,7 @@ void EncoderRead()
 		WrappingStep-=12000;
 	}
 	PositionRaw = EncoderRawData[0] + WrappingStep;
-	PositionRad = (PositionRaw/12000.0)*2.0*3.14;
+//	PositionRad = (PositionRaw/12000.0)*2.0*3.14;
 	PositionDeg = (PositionRaw/12000.0)*360.0;
 	VelocityDeg = (((EncoderRawData[0] - EncoderRawData[1])/dt)/12000.0)*360.0;
 	EncoderRawData[1] = EncoderRawData[0];
@@ -623,6 +569,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 		_micro += 65535;
 	}
 	if (htim == &htim3) {
+		CheckLoopStartTime = Micros();
 		EncoderRead();
 		KalmanFilterFunction(&KalmanVar,PositionDeg);
 		if (flagT == 0)
@@ -633,9 +580,12 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 		CurrentTime = Micros();
 //		timeC = (CurrentTime - StartTime)/1000000.0;
 		setpoint = TrajectoryEvaluation(&traject,StartTime,CurrentTime);
-//		setpoint = 20.0;
+//		setpoint = 40.0;
 		PIDController_Update(&pid, traject.QX, KalmanVar.MatState_Data[0]);
 		PIDVelocityController_Update(&PidVelo, traject.QV + pid.out, KalmanVar.MatState_Data[1]);
+		Drivemotor(PidVelo.ControllerOut);
+		CheckLoopStopTime = Micros();
+		CheckLoopDiffTime = CheckLoopStopTime - CheckLoopStartTime;
 		}
 }
 

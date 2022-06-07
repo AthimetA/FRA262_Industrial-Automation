@@ -26,7 +26,7 @@ float VmaxOptimization(float Qinitial, float Qfinal){
 	}
 	else if(Qrelative >= 160.0)
 	{
-		Vmax = 10.0f;
+		Vmax = 8.0f;
 	}
 	// RPM to deg/sec
 	return Vmax *360.0/60.0;
