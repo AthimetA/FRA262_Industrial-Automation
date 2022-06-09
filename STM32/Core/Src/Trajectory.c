@@ -37,23 +37,23 @@ void TrajectoryConfig(TrajectoryG *traject){
 	}
 	// Find Speed limit
 	float Vmax = 0.0;
-	if(Qrelative >= 1.0  && Qrelative < 20.0)
+	if(traject -> QRelative >= 1.0  && traject -> QRelative < 20.0)
 	{
 		Vmax = 0.4f;
 	}
-	else if(Qrelative >= 20.0  && Qrelative < 60.0)
+	else if(traject -> QRelative >= 20.0  && traject -> QRelative < 60.0)
 	{
 		Vmax = 2.0f;
 	}
-	else if(Qrelative >= 60.0  && Qrelative < 100.0)
+	else if(traject -> QRelative >= 60.0  && traject -> QRelative < 100.0)
 	{
 		Vmax = 4.0f;
 	}
-	else if(Qrelative >= 100.0  && Qrelative < 160.0)
+	else if(traject -> QRelative >= 100.0  && traject -> QRelative < 160.0)
 	{
 		Vmax = 6.0f;
 	}
-	else if(Qrelative >= 160.0)
+	else if(traject -> QRelative >= 160.0)
 	{
 		Vmax = 8.0f;
 	}
@@ -71,7 +71,7 @@ void CoefficientAndTimeCalculation(TrajectoryG *traject, float Qinitial, float Q
 	TrajectoryConfig(&traject);
 
 	// Calculate time
-	traject -> T[6] = (traject -> Amax/traject -> Jmax) + (traject -> Vmax/traject -> Amax) + (Qrelative/traject -> Vmax);
+	traject -> T[6] = (traject -> Amax/traject -> Jmax) + (traject -> Vmax/traject -> Amax) + (traject -> QRelative/traject -> Vmax);
 	traject -> T[0] = (traject -> Amax/traject -> Jmax);
 	traject -> T[1] = (traject -> Vmax/traject -> Amax);
 	traject -> T[2] = (traject -> Amax/traject -> Jmax) + (traject -> Vmax/traject -> Amax);

@@ -67,7 +67,9 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
- TIM_HandleTypeDef htim1;
+ I2C_HandleTypeDef hi2c1;
+
+TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim11;
@@ -136,6 +138,10 @@ static uint64_t CheckLoopStartTime =0;
 static uint64_t CheckLoopStopTime =0;
 static uint64_t CheckLoopDiffTime =0;
 float TestDestination = 90.0;
+
+// I2C
+uint8_t I2CEndEffectorWriteFlag = 0;
+uint8_t I2CEndEffectorReadFlag = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -146,12 +152,15 @@ static void MX_TIM1_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_TIM11_Init(void);
+static void MX_I2C1_Init(void);
 /* USER CODE BEGIN PFP */
 uint64_t Micros();
 uint32_t PWMAbs(int32_t PWM);
 void Drivemotor(int32_t PWM);
 void EncoderRead();
 void ControllLoopAndErrorHandler();
+void I2CWriteFcn(uint8_t *Wdata, uint16_t len, uint16_t MemAd);
+void I2CReadFcn(uint8_t *Rdata, uint16_t len, uint16_t MemAd);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -192,6 +201,7 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM3_Init();
   MX_TIM11_Init();
+  MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
   KalmanMatrixInit(&KalmanVar);
   //////////////////////////
@@ -263,6 +273,40 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief I2C1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_I2C1_Init(void)
+{
+
+  /* USER CODE BEGIN I2C1_Init 0 */
+
+  /* USER CODE END I2C1_Init 0 */
+
+  /* USER CODE BEGIN I2C1_Init 1 */
+
+  /* USER CODE END I2C1_Init 1 */
+  hi2c1.Instance = I2C1;
+  hi2c1.Init.ClockSpeed = 400000;
+  hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
+  hi2c1.Init.OwnAddress1 = 0;
+  hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c1.Init.OwnAddress2 = 0;
+  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN I2C1_Init 2 */
+
+  /* USER CODE END I2C1_Init 2 */
+
 }
 
 /**
@@ -613,6 +657,25 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 		CheckLoopStopTime = Micros();
 		CheckLoopDiffTime = CheckLoopStopTime - CheckLoopStartTime;
 		}
+}
+
+void I2CWriteFcn(uint8_t *Wdata, uint16_t len, uint16_t MemAd) {
+	if (I2CEndEffectorWriteFlag && hi2c1.State == HAL_I2C_STATE_READY) {
+//		static uint8_t data;
+//		data = Wdata;
+//		HAL_I2C_Master_Transmit_IT(&hi2c1, MemAd, Wdata, len);
+//		HAL_I2C_Mem_Write_IT(&hi2c1, DevAddress, MemAddress, MemAddSize, pData, Size);
+		I2CEndEffectorWriteFlag = 0;
+	}
+}
+void I2CReadFcn(uint8_t *Rdata, uint16_t len, uint16_t MemAd) {
+	if (I2CEndEffectorReadFlag && hi2c1.State == HAL_I2C_STATE_READY) {
+//		static uint8_t data;
+//		data = Rdata;
+//		HAL_I2C_Mem_Read_IT(&hi2c1, DevAddress, MemAddress, MemAddSize, pData, Size)
+//		HAL_I2C_Master_Receive_IT(&hi2c1, DevAddress, pData, Size);
+		I2CEndEffectorReadFlag = 0;
+	}
 }
 
 uint64_t Micros(){
