@@ -31,8 +31,10 @@ typedef struct {
 	// Time {t1,t2,t3,t4,t5,t6,t7(Tmax)}
 	float T[7];
 
-	// Current Location {Set as 0 Relative}
+	// Current Location
 	float Qin;
+	// Current Location {Set as 0 Relative to current position}
+	float QRelative;
 	// Final Location
 	float Qfinal;
 
@@ -44,8 +46,9 @@ typedef struct {
 
 } TrajectoryG;
 
-float VmaxOptimization(float Qinitial, float Qfinal);
+float AbsVal(float number);
+void TrajectoryConfig(TrajectoryG *traject);
 void CoefficientAndTimeCalculation(TrajectoryG *traject, float Qinitial, float Qfinal);
-float TrajectoryEvaluation(TrajectoryG *traject , uint64_t StartTime, uint64_t CurrentTime);
+void TrajectoryEvaluation(TrajectoryG *traject , uint64_t StartTime, uint64_t CurrentTime);
 
 #endif /* INC_TRAJECTORY_H_ */

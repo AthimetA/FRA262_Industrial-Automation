@@ -37,23 +37,28 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-/* Controller,Kalman parameters */
+/* Kalman Filter parameters */
 #define dt  0.001f
 #define testDes 90.0f
 #define Kalmanvar  1.0f
+/* Controller parameters */
 #define PID_KP  3.0f
 #define PID_KI  0.00001f
 #define PID_KD  1.2f
 #define PIDVELO_KP  12.0f
 #define PIDVELO_KI  1.5f
 #define PIDVELO_KD  0.0f
-#define PID_LIM_MIN_INT -10000.0f
-#define PID_LIM_MAX_INT  10000.0f
+/* PID output limit */
+#define PID_OUT_LIM_MIN -10000.0f
+#define PID_OUT_LIM_MAX  10000.0f
+/* Trajectory parameters */
+#define AMAX 28.65f // 0.5 rad/s^2
+#define JMAX 573.0f // 10.0 rad/s^2
 /* PWM MAX parameters */
-#define AMAX 28.65f
-#define JMAX 573.0f
-/* PWM MAX parameters */
-#define PWM_MAX 10000
+#define PWM_MAX 10000 // Timer Period
+/* Dead band Optimise */
+#define PositionErrorControl 0.15f
+#define VelocityErrorControl 1.0f
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -78,7 +83,6 @@ int WrappingStep = 0;
 int PositionRaw = 0;
 float32_t PositionDeg = 0;
 float32_t VelocityDeg = 0;
-float32_t PositionRad = 0;
 /* Initialise Kalman Filter */
 KalmanFilterVar KalmanVar = {
 		{1,dt,0.5*dt*dt,0,1,dt,0,0,1},
@@ -114,14 +118,13 @@ KalmanFilterVar KalmanVar = {
 };
 /* Initialise PID controller */
 PIDVelocityController PidVelo = {PIDVELO_KP,PIDVELO_KI,PIDVELO_KD,
-								PID_LIM_MIN_INT,PID_LIM_MAX_INT};
+								PID_OUT_LIM_MIN,PID_OUT_LIM_MAX};
 PIDVelocityController PidPos = {PID_KP, PID_KI, PID_KD,
-								PID_LIM_MIN_INT,PID_LIM_MAX_INT};
+								PID_OUT_LIM_MIN,PID_OUT_LIM_MAX};
 /* Simulate response using test system */
 float setpoint = 0.0f;
 float setpointCheck = 0.0f;
 float PWMCHECKER = 0.0f;
-float PositionErrorControl = 0.3f;
 int32_t PWMC = 2500;
 /* Trajectory */
 TrajectoryG traject = {AMAX,JMAX};
@@ -132,6 +135,7 @@ static uint64_t CurrentTime =0;
 static uint64_t CheckLoopStartTime =0;
 static uint64_t CheckLoopStopTime =0;
 static uint64_t CheckLoopDiffTime =0;
+float TestDestination = 90.0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -147,7 +151,6 @@ uint64_t Micros();
 uint32_t PWMAbs(int32_t PWM);
 void Drivemotor(int32_t PWM);
 void EncoderRead();
-float AbsVal(float number);
 void ControllLoopAndErrorHandler();
 /* USER CODE END PFP */
 
@@ -202,7 +205,7 @@ int main(void)
   PIDVelocityController_Init(&PidVelo);
   PIDVelocityController_Init(&PidPos);
 
-  CoefficientAndTimeCalculation(&traject,0.0,testDes);
+  CoefficientAndTimeCalculation(&traject,0.0,TestDestination);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -516,6 +519,10 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
+
 }
 
 /* USER CODE BEGIN 4 */
@@ -562,33 +569,27 @@ void Drivemotor(int32_t PWM){
 	}
 }
 
-float AbsVal(float number)
-{
-  if(number<0)
-  {
-    return number*-1.0;
-  }
-  else
-  {
-    return number;
-  }
-}
-
 void ControllLoopAndErrorHandler()
 {
+	// Set Start time
+	if (flagT == 0)
+	{
+	StartTime = Micros();
+	flagT =1;
+	}
+	// Trajectory Time
 	CurrentTime = Micros();
-	setpoint = TrajectoryEvaluation(&traject,StartTime,CurrentTime);
+	TrajectoryEvaluation(&traject,StartTime,CurrentTime);
+	// Sensor Read and Estimate
 	EncoderRead();
 	KalmanFilterFunction(&KalmanVar,PositionDeg);
-	  if (flagT == 0)
-	  {
-	    StartTime = Micros();
-	    flagT =1;
-	  }
-	  if(AbsVal(testDes - PositionDeg) < 0.15 && AbsVal(KalmanVar.MatState_Data[1]) < 1.0)
+	  if(AbsVal(testDes - PositionDeg) < PositionErrorControl && AbsVal(KalmanVar.MatState_Data[1]) < VelocityErrorControl)
 	  {
 	    PWMCHECKER = 0.0;
 	    Drivemotor(PWMCHECKER);
+	    // Reset Controller
+		PIDVelocityController_Init(&PidVelo);
+		PIDVelocityController_Init(&PidPos);
 	  }
 	  else
 	  {
@@ -606,8 +607,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	}
 	if (htim == &htim3) {
 		CheckLoopStartTime = Micros();
-		//
+		// Task Start
 		ControllLoopAndErrorHandler();
+		// Task End
 		CheckLoopStopTime = Micros();
 		CheckLoopDiffTime = CheckLoopStopTime - CheckLoopStartTime;
 		}
@@ -615,6 +617,14 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 
 uint64_t Micros(){
 	return _micro + TIM11->CNT;
+}
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+	if(GPIO_Pin == GPIO_PIN_13)
+	{
+		CoefficientAndTimeCalculation(&traject,PositionDeg,TestDestination);
+	}
 }
 /* USER CODE END 4 */
 
