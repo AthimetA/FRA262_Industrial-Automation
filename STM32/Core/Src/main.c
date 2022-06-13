@@ -23,6 +23,7 @@
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
 #include <string.h>
+
 #include "PID.h"
 #include "Kalman.h"
 #include "arm_math.h"
@@ -70,6 +71,17 @@ TIM_HandleTypeDef htim11;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
+// UART PROTOCAL
+// Buffer
+uint8_t TxDataBuffer[32] = { 0 };
+uint8_t RxDataBuffer[32] = { 0 };
+uint8_t StartFramePosition = 0;
+uint8_t StopFramePosition = 0;
+uint8_t command = 0;
+uint8_t connected = 0;
+uint8_t ACK_1[2] = { 0x58, 0b01110101 };
+uint8_t ACK_2[2] = { 70, 0b01101110 };
+int16_t inputchar;
 /* Setup Microsec */
 uint64_t _micro = 0;
 /* Setup EncoderData */
@@ -143,6 +155,7 @@ static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_TIM11_Init(void);
 /* USER CODE BEGIN PFP */
+int16_t UARTRecieveIT();
 uint64_t Micros();
 uint32_t PWMAbs(int32_t PWM);
 void Drivemotor(int32_t PWM);
@@ -209,6 +222,8 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	HAL_UART_Receive_IT(&huart2,  (uint8_t*)RxDataBuffer, 32);
+	inputchar = UARTRecieveIT();
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -468,10 +483,10 @@ static void MX_USART2_UART_Init(void)
 
   /* USER CODE END USART2_Init 1 */
   huart2.Instance = USART2;
-  huart2.Init.BaudRate = 115200;
-  huart2.Init.WordLength = UART_WORDLENGTH_8B;
+  huart2.Init.BaudRate = 512000;
+  huart2.Init.WordLength = UART_WORDLENGTH_9B;
   huart2.Init.StopBits = UART_STOPBITS_1;
-  huart2.Init.Parity = UART_PARITY_NONE;
+  huart2.Init.Parity = UART_PARITY_EVEN;
   huart2.Init.Mode = UART_MODE_TX_RX;
   huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
   huart2.Init.OverSampling = UART_OVERSAMPLING_16;
@@ -615,6 +630,40 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 
 uint64_t Micros(){
 	return _micro + TIM11->CNT;
+}
+
+int16_t UARTRecieveIT()
+{
+	static uint8_t sum = 0;
+	static uint8_t str_idx = 0;
+	static uint32_t dataPos = 0;
+	if (huart2.RxXferSize - huart2.RxXferCount != dataPos)
+	{
+		if ((uint8_t)RxDataBuffer[dataPos]==(uint8_t)(~sum)) {
+			sum = 0;
+			switch (RxDataBuffer[str_idx]) {
+			case 0b10010010:
+				//mode 2
+				connected = 2;
+				HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
+				break;
+			case 0b10010011:
+				//mode 3
+				connected = 3;
+				HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
+				break;
+			case 0b10011110:
+				//mode 14
+				connected = 14;
+				HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
+				break;
+			}
+			str_idx = (dataPos + 1) % huart2.RxXferSize;
+		} else {
+			sum = sum+RxDataBuffer[dataPos];
+		}
+		dataPos = (dataPos + 1) % huart2.RxXferSize;
+	}
 }
 /* USER CODE END 4 */
 
