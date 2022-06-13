@@ -8,57 +8,28 @@
 
 #include "Trajectory.h"
 
-float AbsVal(float number)
-{
-  if(number<0)
-  {
-    return number*-1.0;
-  }
-  else
-  {
-    return number;
-  }
-}
 
-void TrajectoryConfig(TrajectoryG *traject){
-	float gain = 0.0;
-	// Check Direction
-	if(traject -> QRelative < 0.0)
+float VmaxOptimization(float Qinitial, float Qfinal){
+	float Qrelative = Qfinal - Qinitial;
+	float Vmax = -1;
+	if(Qrelative >= 1.0  && Qrelative < 20.0)
 	{
-		gain = -1.0;
-		traject -> Amax =  -17.19; // 0.3 rad/s^2 to deg/sec^2
-		traject -> Jmax =  -114.6; // 2.0 rad/s^3 to deg/sec^3
+		Vmax = 0.7f;
 	}
-	else
+	else if(Qrelative >= 20.0  && Qrelative < 60.0)
 	{
-		gain = 1.0;
-		traject -> Amax =  17.19; // 0.3 rad/s^2 to deg/sec^2
-		traject -> Jmax =  114.6; // 2.0 rad/s^3 to deg/sec^3
+		Vmax = 3.0f;
 	}
-	// Find Speed limit
-	float Vmax = 0.0;
-	if(traject -> QRelative >= 1.0  && traject -> QRelative < 20.0)
-	{
-		Vmax = 0.4f;
-	}
-	else if(traject -> QRelative >= 20.0  && traject -> QRelative < 60.0)
-	{
-		Vmax = 2.0f;
-	}
-	else if(traject -> QRelative >= 60.0  && traject -> QRelative < 100.0)
-	{
-		Vmax = 4.0f;
-	}
-	else if(traject -> QRelative >= 100.0  && traject -> QRelative < 160.0)
+	else if(Qrelative >= 60.0  && Qrelative < 160.0)
 	{
 		Vmax = 6.0f;
 	}
-	else if(traject -> QRelative >= 160.0)
+	else if(Qrelative >= 160.0)
 	{
 		Vmax = 8.0f;
 	}
-	// RPM to deg/sec with Direction
-	traject -> Vmax =  (Vmax *360.0/60.0)*gain;
+	// RPM to deg/sec
+	return Vmax *360.0/60.0;
 }
 
 void CoefficientAndTimeCalculation(TrajectoryG *traject, float Qinitial, float Qfinal){
@@ -66,12 +37,12 @@ void CoefficientAndTimeCalculation(TrajectoryG *traject, float Qinitial, float Q
 	traject -> Qin = Qinitial;
 	traject -> Qfinal = Qfinal;
 	// Set initial = 0;
-	traject -> QRelative = traject -> Qfinal - traject -> Qin;
-	// Set Vmax Amax Jmax
-	TrajectoryConfig(&traject);
+	float Qrelative = Qfinal - Qinitial;
+	// Set Vmax
+	traject -> Vmax = VmaxOptimization(Qinitial,Qfinal);
 
 	// Calculate time
-	traject -> T[6] = (traject -> Amax/traject -> Jmax) + (traject -> Vmax/traject -> Amax) + (traject -> QRelative/traject -> Vmax);
+	traject -> T[6] = (traject -> Amax/traject -> Jmax) + (traject -> Vmax/traject -> Amax) + (Qrelative/traject -> Vmax);
 	traject -> T[0] = (traject -> Amax/traject -> Jmax);
 	traject -> T[1] = (traject -> Vmax/traject -> Amax);
 	traject -> T[2] = (traject -> Amax/traject -> Jmax) + (traject -> Vmax/traject -> Amax);
@@ -139,7 +110,7 @@ void CoefficientAndTimeCalculation(TrajectoryG *traject, float Qinitial, float Q
 }
 
 
-void TrajectoryEvaluation(TrajectoryG *traject , uint64_t StartTime, uint64_t CurrentTime){
+float TrajectoryEvaluation(TrajectoryG *traject , uint64_t StartTime, uint64_t CurrentTime){
 	// Microsec to sec
 	static float t = 0;
 	t  = (CurrentTime - StartTime)/1000000.0;
@@ -200,5 +171,6 @@ void TrajectoryEvaluation(TrajectoryG *traject , uint64_t StartTime, uint64_t Cu
 		traject -> QV = 0;
 		traject -> QX = traject -> Qfinal;
 	}
-	traject -> QX = traject -> QX + traject -> Qin;
+
+	return traject -> QV;
 }

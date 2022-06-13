@@ -37,28 +37,23 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-/* Kalman Filter parameters */
+/* Controller,Kalman parameters */
 #define dt  0.001f
 #define testDes 90.0f
 #define Kalmanvar  1.0f
-/* Controller parameters */
 #define PID_KP  3.0f
 #define PID_KI  0.00001f
 #define PID_KD  1.2f
 #define PIDVELO_KP  12.0f
 #define PIDVELO_KI  1.5f
 #define PIDVELO_KD  0.0f
-/* PID output limit */
-#define PID_OUT_LIM_MIN -10000.0f
-#define PID_OUT_LIM_MAX  10000.0f
-/* Trajectory parameters */
-#define AMAX 28.65f // 0.5 rad/s^2
-#define JMAX 573.0f // 10.0 rad/s^2
+#define PID_LIM_MIN_INT -10000.0f
+#define PID_LIM_MAX_INT  10000.0f
 /* PWM MAX parameters */
-#define PWM_MAX 10000 // Timer Period
-/* Dead band Optimise */
-#define PositionErrorControl 0.15f
-#define VelocityErrorControl 1.0f
+#define AMAX 28.65f
+#define JMAX 573.0f
+/* PWM MAX parameters */
+#define PWM_MAX 10000
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -67,9 +62,7 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
- I2C_HandleTypeDef hi2c1;
-
-TIM_HandleTypeDef htim1;
+ TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim11;
@@ -85,6 +78,7 @@ int WrappingStep = 0;
 int PositionRaw = 0;
 float32_t PositionDeg = 0;
 float32_t VelocityDeg = 0;
+float32_t PositionRad = 0;
 /* Initialise Kalman Filter */
 KalmanFilterVar KalmanVar = {
 		{1,dt,0.5*dt*dt,0,1,dt,0,0,1},
@@ -120,13 +114,14 @@ KalmanFilterVar KalmanVar = {
 };
 /* Initialise PID controller */
 PIDVelocityController PidVelo = {PIDVELO_KP,PIDVELO_KI,PIDVELO_KD,
-								PID_OUT_LIM_MIN,PID_OUT_LIM_MAX};
+								PID_LIM_MIN_INT,PID_LIM_MAX_INT};
 PIDVelocityController PidPos = {PID_KP, PID_KI, PID_KD,
-								PID_OUT_LIM_MIN,PID_OUT_LIM_MAX};
+								PID_LIM_MIN_INT,PID_LIM_MAX_INT};
 /* Simulate response using test system */
 float setpoint = 0.0f;
 float setpointCheck = 0.0f;
 float PWMCHECKER = 0.0f;
+float PositionErrorControl = 0.3f;
 int32_t PWMC = 2500;
 /* Trajectory */
 TrajectoryG traject = {AMAX,JMAX};
@@ -137,11 +132,6 @@ static uint64_t CurrentTime =0;
 static uint64_t CheckLoopStartTime =0;
 static uint64_t CheckLoopStopTime =0;
 static uint64_t CheckLoopDiffTime =0;
-float TestDestination = 90.0;
-
-// I2C
-uint8_t I2CEndEffectorWriteFlag = 0;
-uint8_t I2CEndEffectorReadFlag = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -152,15 +142,13 @@ static void MX_TIM1_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_TIM11_Init(void);
-static void MX_I2C1_Init(void);
 /* USER CODE BEGIN PFP */
 uint64_t Micros();
 uint32_t PWMAbs(int32_t PWM);
 void Drivemotor(int32_t PWM);
 void EncoderRead();
+float AbsVal(float number);
 void ControllLoopAndErrorHandler();
-void I2CWriteFcn(uint8_t *Wdata, uint16_t len, uint16_t MemAd);
-void I2CReadFcn(uint8_t *Rdata, uint16_t len, uint16_t MemAd);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -201,7 +189,6 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM3_Init();
   MX_TIM11_Init();
-  MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
   KalmanMatrixInit(&KalmanVar);
   //////////////////////////
@@ -215,7 +202,7 @@ int main(void)
   PIDVelocityController_Init(&PidVelo);
   PIDVelocityController_Init(&PidPos);
 
-  CoefficientAndTimeCalculation(&traject,0.0,TestDestination);
+  CoefficientAndTimeCalculation(&traject,0.0,testDes);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -273,40 +260,6 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
-}
-
-/**
-  * @brief I2C1 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_I2C1_Init(void)
-{
-
-  /* USER CODE BEGIN I2C1_Init 0 */
-
-  /* USER CODE END I2C1_Init 0 */
-
-  /* USER CODE BEGIN I2C1_Init 1 */
-
-  /* USER CODE END I2C1_Init 1 */
-  hi2c1.Instance = I2C1;
-  hi2c1.Init.ClockSpeed = 400000;
-  hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
-  hi2c1.Init.OwnAddress1 = 0;
-  hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
-  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
-  hi2c1.Init.OwnAddress2 = 0;
-  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
-  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
-  if (HAL_I2C_Init(&hi2c1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN I2C1_Init 2 */
-
-  /* USER CODE END I2C1_Init 2 */
-
 }
 
 /**
@@ -563,10 +516,6 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /* EXTI interrupt init*/
-  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
-
 }
 
 /* USER CODE BEGIN 4 */
@@ -613,27 +562,33 @@ void Drivemotor(int32_t PWM){
 	}
 }
 
+float AbsVal(float number)
+{
+  if(number<0)
+  {
+    return number*-1.0;
+  }
+  else
+  {
+    return number;
+  }
+}
+
 void ControllLoopAndErrorHandler()
 {
-	// Set Start time
-	if (flagT == 0)
-	{
-	StartTime = Micros();
-	flagT =1;
-	}
-	// Trajectory Time
 	CurrentTime = Micros();
-	TrajectoryEvaluation(&traject,StartTime,CurrentTime);
-	// Sensor Read and Estimate
+	setpoint = TrajectoryEvaluation(&traject,StartTime,CurrentTime);
 	EncoderRead();
 	KalmanFilterFunction(&KalmanVar,PositionDeg);
-	  if(AbsVal(testDes - PositionDeg) < PositionErrorControl && AbsVal(KalmanVar.MatState_Data[1]) < VelocityErrorControl)
+	  if (flagT == 0)
+	  {
+	    StartTime = Micros();
+	    flagT =1;
+	  }
+	  if(AbsVal(testDes - PositionDeg) < 0.15 && AbsVal(KalmanVar.MatState_Data[1]) < 1.0)
 	  {
 	    PWMCHECKER = 0.0;
 	    Drivemotor(PWMCHECKER);
-	    // Reset Controller
-		PIDVelocityController_Init(&PidVelo);
-		PIDVelocityController_Init(&PidPos);
 	  }
 	  else
 	  {
@@ -651,43 +606,15 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	}
 	if (htim == &htim3) {
 		CheckLoopStartTime = Micros();
-		// Task Start
+		//
 		ControllLoopAndErrorHandler();
-		// Task End
 		CheckLoopStopTime = Micros();
 		CheckLoopDiffTime = CheckLoopStopTime - CheckLoopStartTime;
 		}
 }
 
-void I2CWriteFcn(uint8_t *Wdata, uint16_t len, uint16_t MemAd) {
-	if (I2CEndEffectorWriteFlag && hi2c1.State == HAL_I2C_STATE_READY) {
-//		static uint8_t data;
-//		data = Wdata;
-//		HAL_I2C_Master_Transmit_IT(&hi2c1, MemAd, Wdata, len);
-//		HAL_I2C_Mem_Write_IT(&hi2c1, DevAddress, MemAddress, MemAddSize, pData, Size);
-		I2CEndEffectorWriteFlag = 0;
-	}
-}
-void I2CReadFcn(uint8_t *Rdata, uint16_t len, uint16_t MemAd) {
-	if (I2CEndEffectorReadFlag && hi2c1.State == HAL_I2C_STATE_READY) {
-//		static uint8_t data;
-//		data = Rdata;
-//		HAL_I2C_Mem_Read_IT(&hi2c1, DevAddress, MemAddress, MemAddSize, pData, Size)
-//		HAL_I2C_Master_Receive_IT(&hi2c1, DevAddress, pData, Size);
-		I2CEndEffectorReadFlag = 0;
-	}
-}
-
 uint64_t Micros(){
 	return _micro + TIM11->CNT;
-}
-
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
-{
-	if(GPIO_Pin == GPIO_PIN_13)
-	{
-		CoefficientAndTimeCalculation(&traject,PositionDeg,TestDestination);
-	}
 }
 /* USER CODE END 4 */
 
