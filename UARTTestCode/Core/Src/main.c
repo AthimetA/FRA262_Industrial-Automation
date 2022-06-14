@@ -44,11 +44,15 @@
 
 /* USER CODE BEGIN PV */
  enum{normOperation, emergency} beegState = normOperation;
- enum{INIT, waitCMDs, setVelo, setPos, set1Goal, setMultiGoal, mcuConnections, testCMD, setHome, reqStation, reqPos, reqMAXVelo} cmdState = INIT;
+// enum{INIT, waitCMDs, setVelo, setPos, set1Goal, setMultiGoal, mcuConnections, testCMD, setHome, reqStation, reqPos, reqMAXVelo} cmdState = INIT;
+ enum{INIT, waitCMDs} cmdState = INIT;
  enum{mcuC, mcuDC} mcuConnex = mcuC;
 
  char TxDataBuffer[32] = {0};
  uint8_t RxDataBuffer[32] = {0};
+ uint8_t checkSum = 0;
+ uint8_t rxDataStart = 0;
+ uint8_t rxDataCount = 0;
  uint8_t ACK_1[2] = { 0x58, 0b01110101 };
  uint8_t ACK_2[2] = { 70, 0b01101110 };
  uint8_t uartVelo;
@@ -57,6 +61,7 @@
  uint8_t goalAmount = 0;
  uint8_t runningFlag = 0;
  uint8_t reachedFlag = 0;
+ uint8_t modeNo = 0;
 
 /* USER CODE END PV */
 
@@ -112,6 +117,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  HAL_UART_Receive_IT(&huart2, &RxDataBuffer, 32);
 	  stateManagement();
 
 //	  HAL_UART_Receive_IT(&huart2, &testUART, 1);
@@ -268,10 +274,10 @@ static void MX_GPIO_Init(void)
 //}
 
 void stateManagement(){
-	static uint8_t rxDataStart = 0;
-	static uint8_t rxDataCount = 0;
-	static uint8_t cmdStorageShift = 0;
-	static uint8_t checkSum = 0;
+//	static uint8_t rxDataStart = 0;
+//	static uint8_t rxDataCount = 0;
+//	static uint8_t cmdStorageShift = 0;
+//	static uint8_t checkSum = 0;
 	switch(beegState){
 		case normOperation:
 			switch(cmdState){
@@ -280,36 +286,70 @@ void stateManagement(){
 					cmdState = waitCMDs;
 					break;
 				case waitCMDs:
-					HAL_UART_Receive_IT(&huart2, &RxDataBuffer, 32);
 					if(huart2.RxXferSize - huart2.RxXferCount != rxDataCount){
-						if(RxDataBuffer[rxDataStart] == ~checkSum){
+						if((uint8_t)RxDataBuffer[rxDataCount] == (uint8_t)(~checkSum)){
+							checkSum = 0;
 							switch(RxDataBuffer[rxDataStart]){
 							case 0b10010001:
+								modeNo = 1;
 								break;
 							case 0b10010010:
+								modeNo = 2;
 								HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
 								break;
 							case 0b10010011:
+								modeNo = 3;
 								HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
 								break;
 							case 0b10010100:
+								modeNo = 4;
 								uartVelo = RxDataBuffer[rxDataStart + 2];
 								HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
 								break;
 							case 0b10010101:
+								modeNo = 5;
 								uartPos = (RxDataBuffer[rxDataStart + 1] << 8) | RxDataBuffer[rxDataStart + 2];
 								HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
 								break;
 							case 0b10010110:
-								uartGoal = RxDataBuffer[rxDataStart + 2];
+								modeNo = 6;
+								uartGoal[0] = RxDataBuffer[rxDataStart + 2];
 								HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
 								break;
 							case 0b10010111:
+								modeNo = 7;
 								goalAmount = RxDataBuffer[rxDataStart + 1];
 								// rethinking
 								break;
+							case 0b10011000:
+								modeNo = 8;
+								HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
+								break;
+							case 0b10011001:
+								modeNo = 9;
+								HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
+								break;
+							case 0b10011010:
+								modeNo = 10;
+								HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
+								break;
+							case 0b10011011:
+								modeNo = 11;
+								HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
+								break;
+							case 0b10011100:
+								modeNo = 12;
+								HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
+								break;
+							case 0b10011101:
+								modeNo = 13;
+								HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
+								break;
+							case 0b10011110:
+								modeNo = 14;
+								HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
+								break;
 							}
-							checkSum = 0;
 							rxDataStart = (rxDataCount + 1) % huart2.RxXferSize; // might have to redo
 						}
 						else{
@@ -317,190 +357,11 @@ void stateManagement(){
 						}
 						rxDataCount = (rxDataCount + 1) % huart2.RxXferSize;
 					}
-
-//					uartRxData[rxDataCount] = RxDataBuffer;
-//					rxDataCount++;
-//					memset(TxDataBuffer, 0x00, 2*sizeof(TxDataBuffer[0]));
-//					memset(uartRxData,0x00, 18*sizeof(uartRxData));
-//					memcpy(uartRxData, RxDataBuffer, strlen(RxDataBuffer)); // copy rxbuffer to another array
-//					memset(RxDataBuffer,0x00,strlen(RxDataBuffer)); // reset rxbuffer
-//					huart2.RxXferCount = 0; // reset rxcount
-//					cmdStorageShift = uartRxData[0] >> 4; // check start command
-//					if(cmdStorageShift == 0b00001001){
-//					  cmdStorageShift = uartRxData[0] << 4; // check mode
-//					  if(cmdStorageShift == 0b00010000){ // Test Command (F2)
-//						  checkSum = ~(uartRxData[0] + uartRxData[1] + uartRxData[2]);
-//							  if(uartRxData[strlen(uartRxData)-1] == checkSum){
-//								  sprintf(TxDataBuffer, "Xu");
-//								  HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer), 1000);
-//							  }
-//						  }
-//						  else if(cmdStorageShift == 0b00100000){ // Connect MCU (F1)
-//							  checkSum = ~(uartRxData[0]);
-//							if(uartRxData[strlen(uartRxData)-1] == checkSum){
-//								sprintf(TxDataBuffer, "Xu");
-//								HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer), 1000);
-//							}
-//						  }
-//						  else if(cmdStorageShift == 0b00110000){ // Disconnect MCU (F1)
-//							  checkSum = ~(uartRxData[0]);
-//							  if(uartRxData[strlen(uartRxData)-1] == checkSum){
-//								  sprintf(TxDataBuffer, "Xu");
-//								  HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer), 1000);
-//							  }
-//						  }
-//						  else if(cmdStorageShift == 0b01000000){ // Set Angular Velocity (F2)
-//							  checkSum = ~(uartRxData[0] + uartRxData[1] + uartRxData[2]);
-//							  if(uartRxData[strlen(uartRxData)-1] == checkSum){
-//								  uartVelo = uartRxData[2];
-//								  sprintf(TxDataBuffer, "Xu");
-//								  HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer), 1000);
-//							  }
-//						  }
-//						  else if(cmdStorageShift == 0b01010000){ // Set Angular Position (F2)
-//							  checkSum = ~(uartRxData[0] + uartRxData[1] + uartRxData[2]);
-//							  if(uartRxData[strlen(uartRxData)-1] == checkSum){
-//								  uartPos = (uartRxData[1] << 8) | uartRxData[2]; // merge 2 8-bit (high byte, low byte) to 16-bit
-//								  sprintf(TxDataBuffer, "Xu");
-//								  HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer), 1000);
-//							  }
-//						  }
-//						  else if(cmdStorageShift == 0b01100000){ // Set 1 Goal (F2)
-//							  checkSum = ~(uartRxData[0] + uartRxData[1] + uartRxData[2]);
-//							  if(uartRxData[strlen(uartRxData)-1] == checkSum){
-//								  goalAmount = 1;
-//								  uartGoal[0] = uartRxData[2];
-//								  sprintf(TxDataBuffer, "Xu");
-//								  HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer), 1000);
-//							  }
-//						  }
-//						  else if(cmdStorageShift == 0b01110000){ // Set Multiple Goal (F3)
-//							  for(int i = 0; i < strlen(uartRxData); i++){
-//								  checkSum += uartRxData[i];
-//							  }
-//							  checkSum = ~checkSum;
-//							  if(uartRxData[strlen(uartRxData)-1] == checkSum){
-//								  goalAmount = uartRxData[1];
-//								  if(goalAmount % 2 == 1){
-//									  for(int i = 0; i < ((goalAmount + 1)/2); i++){
-//										  uartGoal[0+i] = uartRxData[2+i] & 15; // low 8 bit (last 4 bit)
-//										  uartGoal[1+i] = uartRxData[2+i] >> 4; // high 8 bit (first 4 bit)
-//									  }
-//								  }
-//								  else{
-//									  for(int i = 0; i < (goalAmount/2); i++){
-//										  uartGoal[0+i] = uartRxData[2+i] & 15; // low 8 bit (last 4 bit)
-//										  uartGoal[1+i] = uartRxData[2+i] >> 4; // high 8 bit (first 4 bit)
-//									  }
-//								  }
-//								  sprintf(TxDataBuffer, "Xu");
-//								  HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer), 1000);
-//							  }
-//						  }
-//						  else if(cmdStorageShift == 0b10000000){ // RUN (F1)
-//							  checkSum = ~(uartRxData[0]);
-//							  if(uartRxData[strlen(uartRxData)-1] == checkSum){
-//								  runningFlag = 1;
-//								  sprintf(TxDataBuffer, "Xu");
-//								  HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer), 1000);
-//							  }
-//						  }
-//						  else if(cmdStorageShift == 0b10010000){ // Request Current Station (F1)
-//							  checkSum = ~(uartRxData[0]);
-//							  if(uartRxData[strlen(uartRxData)-1] == checkSum){
-//								  // send current station
-//							  }
-//						  }
-//						  else if(cmdStorageShift == 0b10100000){ // Request Angular Position (F1)
-//							  checkSum = ~(uartRxData[0]);
-//							  if(uartRxData[strlen(uartRxData)-1] == checkSum){
-//								  // send pos
-//							  }
-//						  }
-//						  else if(cmdStorageShift == 0b10110000){ // Request MAX Angular Velocity (F1)
-//							  checkSum = ~(uartRxData[0]);
-//							  if(uartRxData[strlen(uartRxData)-1] == checkSum){
-//								  // send max velo
-//							  }
-//						  }
-//						  else if(cmdStorageShift == 0b11000000){ // Enable End Effector (F1)
-//							  checkSum = ~(uartRxData[0]);
-//							  if(uartRxData[strlen(uartRxData)-1] == checkSum){
-//								  // enable end effector
-//								  sprintf(TxDataBuffer, "Xu");
-//								  HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer), 1000);
-//							  }
-//						  }
-//						  else if(cmdStorageShift == 0b11010000){ // Disable End Effector (F1)
-//							  checkSum = ~(uartRxData[0]);
-//							  if(uartRxData[strlen(uartRxData)-1] == checkSum){
-//								  // disable end effector
-//								  sprintf(TxDataBuffer, "Xu");
-//								  HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer), 1000);
-//							  }
-//						  }
-//						  else if(cmdStorageShift == 0b11100000){ // Set Home (F1)
-//							  sprintf(TxDataBuffer, "Xu");
-//							  HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer), 1000);
-//						  }
-//					}
-//					if(runningFlag == 1 && reachedFlag == 1){
-//						sprintf(TxDataBuffer, "Fn");
-//						HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer), 1000);
-//						cmdState = INIT;
-//					}
 					break;
-	//	            case setVelo:
-	//	              sprintf(TxDataBuffer, "Xu");
-	//				  HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer), 1000);
-	//	              cmdState = waitCMDs;
-	//	              break;
-	//	            case setPos:
-	//	              sprintf(TxDataBuffer, "Xu");
-	//				  HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer), 1000);
-	//	              cmdState = waitCMDs;
-	//	              break;
-	//	            case set1Goal:
-	//	              sprintf(TxDataBuffer, "Xu");
-	//				  HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer), 1000);
-	//	              cmdState = waitCMDs;
-	//	              break;
-	//	            case setMultiGoal:
-	//	              sprintf(TxDataBuffer, "Xu");
-	//	              HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer), 1000);
-	//	              cmdState = waitCMDs;
-	//	              break;
-	//	            case mcuConnections:
-	//	              switch(mcuConnex){
-	//	                case mcuC:
-	//	                  sprintf(TxDataBuffer, "Xu");
-	//					  HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer), 1000);
-	//	                  break;
-	//	                case mcuDC:
-	//	                  sprintf(TxDataBuffer, "Xu");
-	//	                  HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer), 1000);
-	//	                  break;
-	//	              }
-	//	              cmdState = waitCMDs;
-	//	              break;
-	//	            case testCMD:
-	//	              cmdState = waitCMDs;
-	//	              break;
-	//	            case setHome:
-	//	              sprintf(TxDataBuffer, "Xu");
-	//				  HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer), 1000);
-	//	              cmdState = waitCMDs;
-	//	              break;
-	//	            case reqStation:
-	//	            	break;
-	//	            case reqPos:
-	//	            	break;
-	//	            case reqMAXVelo:
-	//	            	break;
 				  }
 	          	  break;
-	        case emergency:
-	          break;
+	    case emergency:
+	    	break;
 	    }
 }
 
