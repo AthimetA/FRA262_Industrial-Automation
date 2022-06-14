@@ -137,10 +137,11 @@ int main(void)
 	  if(micros() - timeElapsed > 10000000){
 		  timeElapsed = micros();
 		  if(runningFlag == 1){
-			  runningFlag == 0;
+			  runningFlag = 0;
 			  HAL_UART_Transmit_IT(&huart2, ACK_2, 2);
 		  }
 	  }
+
 //	  HAL_UART_Receive_IT(&huart2, &testUART, 1);
 //	  static GPIO_PinState B1State[2] = {0};
 //	  B1State[0] = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13);
@@ -355,12 +356,12 @@ void stateManagement(){
 								break;
 							case 0b10010100:
 								modeNo = 4;
-								uartVelo = RxDataBuffer[rxDataStart + 2];
+								uartVelo = RxDataBuffer[rxDataStart + 2]; // max 255
 								HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
 								break;
 							case 0b10010101:
 								modeNo = 5;
-								uartPos = (RxDataBuffer[rxDataStart + 1] << 8) | RxDataBuffer[rxDataStart + 2];
+								uartPos = (RxDataBuffer[rxDataStart + 1] << 8) | RxDataBuffer[rxDataStart + 2]; // max 65535
 								HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
 								break;
 							case 0b10010110:
