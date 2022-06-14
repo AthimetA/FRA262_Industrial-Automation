@@ -40,7 +40,9 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
- UART_HandleTypeDef huart2;
+ TIM_HandleTypeDef htim11;
+
+UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
  enum{normOperation, emergency} beegState = normOperation;
@@ -55,6 +57,13 @@
  uint8_t rxDataCount = 0;
  uint8_t ACK_1[2] = { 0x58, 0b01110101 };
  uint8_t ACK_2[2] = { 70, 0b01101110 };
+ uint8_t sendData[4] = {0};
+
+ //test data for easier coding
+ uint16_t posData = 0; //(max 16000)
+ uint16_t veloData = 0; //(max 16000)
+ // -------
+
  uint8_t uartVelo;
  uint16_t uartPos;
  uint8_t uartGoal[15];
@@ -63,16 +72,20 @@
  uint8_t reachedFlag = 0;
  uint8_t modeNo = 0;
 
+ uint64_t _micro = 0;
+ uint64_t timeElapsed = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
+static void MX_TIM11_Init(void);
 /* USER CODE BEGIN PFP */
 //void checkSum();
 void stateManagement();
 uint8_t UARTReceiveIT();
+uint64_t micros();
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -109,8 +122,9 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USART2_UART_Init();
+  MX_TIM11_Init();
   /* USER CODE BEGIN 2 */
-
+  HAL_TIM_Base_Start_IT(&htim11);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -120,6 +134,13 @@ int main(void)
 	  HAL_UART_Receive_IT(&huart2, &RxDataBuffer, 32);
 	  stateManagement();
 
+	  if(micros() - timeElapsed > 10000000){
+		  timeElapsed = micros();
+		  if(runningFlag == 1){
+			  runningFlag == 0;
+			  HAL_UART_Transmit_IT(&huart2, ACK_2, 2);
+		  }
+	  }
 //	  HAL_UART_Receive_IT(&huart2, &testUART, 1);
 //	  static GPIO_PinState B1State[2] = {0};
 //	  B1State[0] = HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13);
@@ -187,6 +208,37 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief TIM11 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM11_Init(void)
+{
+
+  /* USER CODE BEGIN TIM11_Init 0 */
+
+  /* USER CODE END TIM11_Init 0 */
+
+  /* USER CODE BEGIN TIM11_Init 1 */
+
+  /* USER CODE END TIM11_Init 1 */
+  htim11.Instance = TIM11;
+  htim11.Init.Prescaler = 0;
+  htim11.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim11.Init.Period = 65535;
+  htim11.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim11.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim11) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM11_Init 2 */
+
+  /* USER CODE END TIM11_Init 2 */
+
 }
 
 /**
@@ -323,19 +375,35 @@ void stateManagement(){
 								break;
 							case 0b10011000:
 								modeNo = 8;
+								runningFlag = 1;
 								HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
 								break;
 							case 0b10011001:
 								modeNo = 9;
 								HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
+								sendData[0] = 153; // start-mode
+								sendData[2] = 10; // set current goal
+								sendData[3] = ~(sendData[0]+sendData[1]+sendData[2]);
+								HAL_UART_Transmit_IT(&huart2, sendData, 4);
 								break;
 							case 0b10011010:
 								modeNo = 10;
 								HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
+								posData = 10271; // data from zhong
+								sendData[0] = 154; // start-mode
+								sendData[1] = ((posData*65535)/16000) & 255; // set low byte posData
+								sendData[2] = ((posData*65535)/16000) >> 8; // set high byte posData
+								sendData[3] = ~(sendData[0]+sendData[1]+sendData[2]);
+								HAL_UART_Transmit_IT(&huart2, sendData, 4);
 								break;
 							case 0b10011011:
 								modeNo = 11;
 								HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
+								veloData = 2496;
+								sendData[0] = 155;
+								sendData[2] = ((veloData*255)/16000) & 255; // set low byte posData
+								sendData[3] = ~(sendData[0]+sendData[1]+sendData[2]);
+								HAL_UART_Transmit_IT(&huart2, sendData, 4);
 								break;
 							case 0b10011100:
 								modeNo = 12;
@@ -363,6 +431,16 @@ void stateManagement(){
 	    case emergency:
 	    	break;
 	    }
+}
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
+	if (htim == &htim11) {
+		_micro += 65535;
+	}
+}
+
+uint64_t micros(){
+	return _micro + htim11.Instance->CNT;
 }
 
 //uint8_t UARTReceiveIT(){
