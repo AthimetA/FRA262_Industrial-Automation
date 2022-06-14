@@ -64,10 +64,15 @@ UART_HandleTypeDef huart2;
  uint16_t veloData = 0; //(max 16000)
  // -------
 
+ //for debugging
+ uint8_t testGoalStartIDX = 0;
+ // -------
+
  uint8_t uartVelo;
  uint16_t uartPos;
  uint8_t uartGoal[15];
  uint8_t goalAmount = 0;
+ uint8_t goalIDX = 0;
  uint8_t runningFlag = 0;
  uint8_t reachedFlag = 0;
  uint8_t modeNo = 0;
@@ -366,13 +371,20 @@ void stateManagement(){
 								break;
 							case 0b10010110:
 								modeNo = 6;
+								goalAmount = 1;
 								uartGoal[0] = RxDataBuffer[rxDataStart + 2];
 								HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
 								break;
 							case 0b10010111:
 								modeNo = 7;
 								goalAmount = RxDataBuffer[rxDataStart + 1];
-								// rethinking
+								uint8_t j = 0;
+								for(int i = 0; i < goalAmount; i += 2){
+									uartGoal[0+i] = RxDataBuffer[rxDataStart+(2+j)] & 15; // low 8 bit (last 4 bit)
+									uartGoal[1+i] = RxDataBuffer[rxDataStart+(2+j)] >> 4; // high 8 bit (first 4 bit)
+									j++;
+								}
+								HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
 								break;
 							case 0b10011000:
 								modeNo = 8;
