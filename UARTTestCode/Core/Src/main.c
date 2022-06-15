@@ -139,7 +139,7 @@ int main(void)
 	  HAL_UART_Receive_IT(&huart2, RxDataBuffer, 32);
 	  stateManagement();
 
-	  if(micros() - timeElapsed > 10000000){
+	  if(micros() - timeElapsed > 15000000){
 		  timeElapsed = micros();
 		  if(runningFlag == 1){
 			  runningFlag = 0;
@@ -231,7 +231,7 @@ static void MX_TIM11_Init(void)
 
   /* USER CODE END TIM11_Init 1 */
   htim11.Instance = TIM11;
-  htim11.Init.Prescaler = 0;
+  htim11.Init.Prescaler = 99;
   htim11.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim11.Init.Period = 65535;
   htim11.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -377,11 +377,9 @@ void stateManagement(){
 							case 0b10010111:
 								modeNo = 7;
 								goalAmount = RxDataBuffer[rxDataStart + 1];
-								uint8_t j = 0;
-								for(int i = 0; i < goalAmount; i += 2){
-									uartGoal[0+i] = RxDataBuffer[rxDataStart+(2+j)] & 15; // low 8 bit (last 4 bit)
-									uartGoal[1+i] = RxDataBuffer[rxDataStart+(2+j)] >> 4; // high 8 bit (first 4 bit)
-									j++;
+								for(int i = 0; i < ((goalAmount+1)/2); i++){
+									uartGoal[0+(i*2)] = RxDataBuffer[rxDataStart+(2+i)] & 15; // low 8 bit (last 4 bit)
+									uartGoal[1+(i*2)] = RxDataBuffer[rxDataStart+(2+i)] >> 4; // high 8 bit (first 4 bit)
 								}
 								HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
 								break;
