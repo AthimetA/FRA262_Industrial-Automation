@@ -39,13 +39,13 @@ Idx Name          Size      VMA       LMA       File off  Algn
                   CONTENTS, READONLY, DEBUGGING, OCTETS
  17 .debug_line   000148ae  00000000  00000000  00052db8  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 18 .debug_str    00092a61  00000000  00000000  00067666  2**0
+ 18 .debug_str    00092a98  00000000  00000000  00067666  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 19 .comment      000000c5  00000000  00000000  000fa0c7  2**0
+ 19 .comment      000000c5  00000000  00000000  000fa0fe  2**0
                   CONTENTS, READONLY
- 20 .debug_frame  00004658  00000000  00000000  000fa18c  2**2
+ 20 .debug_frame  00004658  00000000  00000000  000fa1c4  2**2
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 21 .debug_loc    000016fd  00000000  00000000  000fe7e4  2**0
+ 21 .debug_loc    000016fd  00000000  00000000  000fe81c  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
 
 Disassembly of section .text:
@@ -1578,48 +1578,31 @@ void KalmanFilterFunction(KalmanFilterVar *KalmanVar,float32_t PositionDeg)
  8001224:	bd80      	pop	{r7, pc}
 
 08001226 <PIDVelocityController_Init>:
- *  Created on: 4 Jun 2022
- *      Author: mobil
- */
-
-#include "PIDVelocity.h"
-void  PIDVelocityController_Init(PIDVelocityController *pidVelocity){
  8001226:	b480      	push	{r7}
  8001228:	b083      	sub	sp, #12
  800122a:	af00      	add	r7, sp, #0
  800122c:	6078      	str	r0, [r7, #4]
-
-	pidVelocity->Last1Error = 0.0f;
  800122e:	687b      	ldr	r3, [r7, #4]
  8001230:	f04f 0200 	mov.w	r2, #0
  8001234:	621a      	str	r2, [r3, #32]
-	pidVelocity->Last2Error = 0.0f;
  8001236:	687b      	ldr	r3, [r7, #4]
  8001238:	f04f 0200 	mov.w	r2, #0
  800123c:	625a      	str	r2, [r3, #36]	; 0x24
-
-	pidVelocity->differentiatorOutput = 0.0f;
  800123e:	687b      	ldr	r3, [r7, #4]
  8001240:	f04f 0200 	mov.w	r2, #0
  8001244:	619a      	str	r2, [r3, #24]
-	pidVelocity->integratorOutput = 0.0f;
  8001246:	687b      	ldr	r3, [r7, #4]
  8001248:	f04f 0200 	mov.w	r2, #0
  800124c:	615a      	str	r2, [r3, #20]
-	pidVelocity->proportionalOutput = 0.0f;
  800124e:	687b      	ldr	r3, [r7, #4]
  8001250:	f04f 0200 	mov.w	r2, #0
  8001254:	61da      	str	r2, [r3, #28]
-
-	pidVelocity->ControllerOut = 0.0f;
  8001256:	687b      	ldr	r3, [r7, #4]
  8001258:	f04f 0200 	mov.w	r2, #0
  800125c:	629a      	str	r2, [r3, #40]	; 0x28
-	pidVelocity->ControllerLastOut = 0.0f;
  800125e:	687b      	ldr	r3, [r7, #4]
  8001260:	f04f 0200 	mov.w	r2, #0
  8001264:	62da      	str	r2, [r3, #44]	; 0x2c
-}
  8001266:	bf00      	nop
  8001268:	370c      	adds	r7, #12
  800126a:	46bd      	mov	sp, r7
@@ -1627,24 +1610,16 @@ void  PIDVelocityController_Init(PIDVelocityController *pidVelocity){
  8001270:	4770      	bx	lr
 
 08001272 <PIDVelocityController_Update>:
-
-float PIDVelocityController_Update(PIDVelocityController *pidVelocity, float setpoint, float measurement){
  8001272:	e92d 43b0 	stmdb	sp!, {r4, r5, r7, r8, r9, lr}
  8001276:	b086      	sub	sp, #24
  8001278:	af00      	add	r7, sp, #0
  800127a:	60f8      	str	r0, [r7, #12]
  800127c:	ed87 0a02 	vstr	s0, [r7, #8]
  8001280:	edc7 0a01 	vstr	s1, [r7, #4]
-
-    float error = setpoint - measurement;
  8001284:	ed97 7a02 	vldr	s14, [r7, #8]
  8001288:	edd7 7a01 	vldr	s15, [r7, #4]
  800128c:	ee77 7a67 	vsub.f32	s15, s14, s15
  8001290:	edc7 7a05 	vstr	s15, [r7, #20]
-
-	// Compute error of each term
-
-    pidVelocity->proportionalOutput = (pidVelocity->Kp*error) - (pidVelocity->Kp * pidVelocity->Last1Error);
  8001294:	68fb      	ldr	r3, [r7, #12]
  8001296:	ed93 7a00 	vldr	s14, [r3]
  800129a:	edd7 7a05 	vldr	s15, [r7, #20]
@@ -1657,16 +1632,12 @@ float PIDVelocityController_Update(PIDVelocityController *pidVelocity, float set
  80012b2:	ee77 7a67 	vsub.f32	s15, s14, s15
  80012b6:	68fb      	ldr	r3, [r7, #12]
  80012b8:	edc3 7a07 	vstr	s15, [r3, #28]
-
-    pidVelocity->integratorOutput = (pidVelocity->Ki * error);
  80012bc:	68fb      	ldr	r3, [r7, #12]
  80012be:	ed93 7a01 	vldr	s14, [r3, #4]
  80012c2:	edd7 7a05 	vldr	s15, [r7, #20]
  80012c6:	ee67 7a27 	vmul.f32	s15, s14, s15
  80012ca:	68fb      	ldr	r3, [r7, #12]
  80012cc:	edc3 7a05 	vstr	s15, [r3, #20]
-
-    pidVelocity->differentiatorOutput = ((pidVelocity->Kd*error)) - ((2.0 * pidVelocity->Kd * pidVelocity->Last1Error))
  80012d0:	68fb      	ldr	r3, [r7, #12]
  80012d2:	ed93 7a02 	vldr	s14, [r3, #8]
  80012d6:	edd7 7a05 	vldr	s15, [r7, #20]
@@ -1704,7 +1675,6 @@ float PIDVelocityController_Update(PIDVelocityController *pidVelocity, float set
  8001328:	460b      	mov	r3, r1
  800132a:	4614      	mov	r4, r2
  800132c:	461d      	mov	r5, r3
-    									+((pidVelocity->Kd * pidVelocity->Last2Error))	;
  800132e:	68fb      	ldr	r3, [r7, #12]
  8001330:	ed93 7a02 	vldr	s14, [r3, #8]
  8001334:	68fb      	ldr	r3, [r7, #12]
@@ -1723,13 +1693,8 @@ float PIDVelocityController_Update(PIDVelocityController *pidVelocity, float set
  8001358:	4619      	mov	r1, r3
  800135a:	f7ff fb0b 	bl	8000974 <__aeabi_d2f>
  800135e:	4602      	mov	r2, r0
-    pidVelocity->differentiatorOutput = ((pidVelocity->Kd*error)) - ((2.0 * pidVelocity->Kd * pidVelocity->Last1Error))
  8001360:	68fb      	ldr	r3, [r7, #12]
  8001362:	619a      	str	r2, [r3, #24]
-
-	// Compute output and apply limits
-
-    pidVelocity->ControllerOut = pidVelocity->proportionalOutput + pidVelocity->integratorOutput + pidVelocity->differentiatorOutput
  8001364:	68fb      	ldr	r3, [r7, #12]
  8001366:	ed93 7a07 	vldr	s14, [r3, #28]
  800136a:	68fb      	ldr	r3, [r7, #12]
@@ -1738,15 +1703,11 @@ float PIDVelocityController_Update(PIDVelocityController *pidVelocity, float set
  8001374:	68fb      	ldr	r3, [r7, #12]
  8001376:	edd3 7a06 	vldr	s15, [r3, #24]
  800137a:	ee37 7a27 	vadd.f32	s14, s14, s15
-    								+ pidVelocity->ControllerLastOut;
  800137e:	68fb      	ldr	r3, [r7, #12]
  8001380:	edd3 7a0b 	vldr	s15, [r3, #44]	; 0x2c
  8001384:	ee77 7a27 	vadd.f32	s15, s14, s15
-    pidVelocity->ControllerOut = pidVelocity->proportionalOutput + pidVelocity->integratorOutput + pidVelocity->differentiatorOutput
  8001388:	68fb      	ldr	r3, [r7, #12]
  800138a:	edc3 7a0a 	vstr	s15, [r3, #40]	; 0x28
-
-    if (pidVelocity->ControllerOut > pidVelocity->OutputMax) {
  800138e:	68fb      	ldr	r3, [r7, #12]
  8001390:	ed93 7a0a 	vldr	s14, [r3, #40]	; 0x28
  8001394:	68fb      	ldr	r3, [r7, #12]
@@ -1754,15 +1715,11 @@ float PIDVelocityController_Update(PIDVelocityController *pidVelocity, float set
  800139a:	eeb4 7ae7 	vcmpe.f32	s14, s15
  800139e:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
  80013a2:	dd04      	ble.n	80013ae <PIDVelocityController_Update+0x13c>
-
-    	pidVelocity->ControllerOut = pidVelocity->OutputMax;
  80013a4:	68fb      	ldr	r3, [r7, #12]
  80013a6:	691a      	ldr	r2, [r3, #16]
  80013a8:	68fb      	ldr	r3, [r7, #12]
  80013aa:	629a      	str	r2, [r3, #40]	; 0x28
  80013ac:	e00e      	b.n	80013cc <PIDVelocityController_Update+0x15a>
-
-    } else if (pidVelocity->ControllerOut < pidVelocity->OutputMin) {
  80013ae:	68fb      	ldr	r3, [r7, #12]
  80013b0:	ed93 7a0a 	vldr	s14, [r3, #40]	; 0x28
  80013b4:	68fb      	ldr	r3, [r7, #12]
@@ -1770,36 +1727,24 @@ float PIDVelocityController_Update(PIDVelocityController *pidVelocity, float set
  80013ba:	eeb4 7ae7 	vcmpe.f32	s14, s15
  80013be:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
  80013c2:	d503      	bpl.n	80013cc <PIDVelocityController_Update+0x15a>
-
-    	pidVelocity->ControllerOut = pidVelocity->OutputMin;
  80013c4:	68fb      	ldr	r3, [r7, #12]
  80013c6:	68da      	ldr	r2, [r3, #12]
  80013c8:	68fb      	ldr	r3, [r7, #12]
  80013ca:	629a      	str	r2, [r3, #40]	; 0x28
-    }
-
-    // Controller Memory
-
-    pidVelocity->ControllerLastOut = pidVelocity->ControllerOut;
  80013cc:	68fb      	ldr	r3, [r7, #12]
  80013ce:	6a9a      	ldr	r2, [r3, #40]	; 0x28
  80013d0:	68fb      	ldr	r3, [r7, #12]
  80013d2:	62da      	str	r2, [r3, #44]	; 0x2c
-	pidVelocity->Last1Error = error;
  80013d4:	68fb      	ldr	r3, [r7, #12]
  80013d6:	697a      	ldr	r2, [r7, #20]
  80013d8:	621a      	str	r2, [r3, #32]
-	pidVelocity->Last2Error = pidVelocity->Last1Error;
  80013da:	68fb      	ldr	r3, [r7, #12]
  80013dc:	6a1a      	ldr	r2, [r3, #32]
  80013de:	68fb      	ldr	r3, [r7, #12]
  80013e0:	625a      	str	r2, [r3, #36]	; 0x24
-
-	return pidVelocity->ControllerOut;
  80013e2:	68fb      	ldr	r3, [r7, #12]
  80013e4:	6a9b      	ldr	r3, [r3, #40]	; 0x28
  80013e6:	ee07 3a90 	vmov	s15, r3
-}
  80013ea:	eeb0 0a67 	vmov.f32	s0, s15
  80013ee:	3718      	adds	r7, #24
  80013f0:	46bd      	mov	sp, r7
@@ -5518,103 +5463,46 @@ void SystemInit(void)
  8002ef4:	e000ed00 	.word	0xe000ed00
 
 08002ef8 <Reset_Handler>:
-
-    .section  .text.Reset_Handler
-  .weak  Reset_Handler
-  .type  Reset_Handler, %function
-Reset_Handler:  
-  ldr   sp, =_estack    		 /* set stack pointer */
  8002ef8:	f8df d034 	ldr.w	sp, [pc, #52]	; 8002f30 <LoopFillZerobss+0x12>
-
-/* Copy the data segment initializers from flash to SRAM */  
-  ldr r0, =_sdata
  8002efc:	480d      	ldr	r0, [pc, #52]	; (8002f34 <LoopFillZerobss+0x16>)
-  ldr r1, =_edata
  8002efe:	490e      	ldr	r1, [pc, #56]	; (8002f38 <LoopFillZerobss+0x1a>)
-  ldr r2, =_sidata
  8002f00:	4a0e      	ldr	r2, [pc, #56]	; (8002f3c <LoopFillZerobss+0x1e>)
-  movs r3, #0
  8002f02:	2300      	movs	r3, #0
-  b LoopCopyDataInit
  8002f04:	e002      	b.n	8002f0c <LoopCopyDataInit>
 
 08002f06 <CopyDataInit>:
-
-CopyDataInit:
-  ldr r4, [r2, r3]
  8002f06:	58d4      	ldr	r4, [r2, r3]
-  str r4, [r0, r3]
  8002f08:	50c4      	str	r4, [r0, r3]
-  adds r3, r3, #4
  8002f0a:	3304      	adds	r3, #4
 
 08002f0c <LoopCopyDataInit>:
-
-LoopCopyDataInit:
-  adds r4, r0, r3
  8002f0c:	18c4      	adds	r4, r0, r3
-  cmp r4, r1
  8002f0e:	428c      	cmp	r4, r1
-  bcc CopyDataInit
  8002f10:	d3f9      	bcc.n	8002f06 <CopyDataInit>
-  
-/* Zero fill the bss segment. */
-  ldr r2, =_sbss
  8002f12:	4a0b      	ldr	r2, [pc, #44]	; (8002f40 <LoopFillZerobss+0x22>)
-  ldr r4, =_ebss
  8002f14:	4c0b      	ldr	r4, [pc, #44]	; (8002f44 <LoopFillZerobss+0x26>)
-  movs r3, #0
  8002f16:	2300      	movs	r3, #0
-  b LoopFillZerobss
  8002f18:	e001      	b.n	8002f1e <LoopFillZerobss>
 
 08002f1a <FillZerobss>:
-
-FillZerobss:
-  str  r3, [r2]
  8002f1a:	6013      	str	r3, [r2, #0]
-  adds r2, r2, #4
  8002f1c:	3204      	adds	r2, #4
 
 08002f1e <LoopFillZerobss>:
-
-LoopFillZerobss:
-  cmp r2, r4
  8002f1e:	42a2      	cmp	r2, r4
-  bcc FillZerobss
  8002f20:	d3fb      	bcc.n	8002f1a <FillZerobss>
-
-/* Call the clock system initialization function.*/
-  bl  SystemInit   
  8002f22:	f7ff ffd7 	bl	8002ed4 <SystemInit>
-/* Call static constructors */
-    bl __libc_init_array
  8002f26:	f004 fd29 	bl	800797c <__libc_init_array>
-/* Call the application's entry point.*/
-  bl  main
  8002f2a:	f7ff f843 	bl	8001fb4 <main>
-  bx  lr    
  8002f2e:	4770      	bx	lr
-  ldr   sp, =_estack    		 /* set stack pointer */
  8002f30:	20020000 	.word	0x20020000
-  ldr r0, =_sdata
  8002f34:	20000000 	.word	0x20000000
-  ldr r1, =_edata
  8002f38:	20000474 	.word	0x20000474
-  ldr r2, =_sidata
  8002f3c:	08007a14 	.word	0x08007a14
-  ldr r2, =_sbss
  8002f40:	20000478 	.word	0x20000478
-  ldr r4, =_ebss
  8002f44:	200006f4 	.word	0x200006f4
 
 08002f48 <ADC_IRQHandler>:
- * @retval None       
-*/
-    .section  .text.Default_Handler,"ax",%progbits
-Default_Handler:
-Infinite_Loop:
-  b  Infinite_Loop
  8002f48:	e7fe      	b.n	8002f48 <ADC_IRQHandler>
 	...
 
