@@ -43,6 +43,7 @@
  TIM_HandleTypeDef htim11;
 
 UART_HandleTypeDef huart2;
+DMA_HandleTypeDef hdma_usart2_rx;
 
 /* USER CODE BEGIN PV */
  enum{normOperation, emergency} beegState = normOperation;
@@ -57,7 +58,7 @@ UART_HandleTypeDef huart2;
  uint8_t rxDataCount = 0;
  uint8_t ACK_1[2] = { 0x58, 0b01110101 };
  uint8_t ACK_2[2] = { 70, 0b01101110 };
- uint8_t sendData[4] = {0};
+ uint8_t sendData[6] = {0};
 
  //test data for easier coding
  uint16_t posData = 0; //(max 16000)
@@ -85,6 +86,7 @@ UART_HandleTypeDef huart2;
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
+static void MX_DMA_Init(void);
 static void MX_TIM11_Init(void);
 /* USER CODE BEGIN PFP */
 //void checkSum();
@@ -127,6 +129,7 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USART2_UART_Init();
+  MX_DMA_Init();
   MX_TIM11_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_Base_Start_IT(&htim11);
@@ -280,6 +283,22 @@ static void MX_USART2_UART_Init(void)
 }
 
 /**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA1_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA1_Stream5_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream5_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream5_IRQn);
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -392,46 +411,63 @@ void stateManagement(){
 								break;
 							case 0b10011001:
 								modeNo = 9;
-								sendData[0] = 153; // start-mode
-								sendData[1] = 0;
-								sendData[2] = 10; // set current goal
-								sendData[3] = (uint8_t)(~(sendData[0]+sendData[1]+sendData[2]));
 								if(runningFlag == 1){
-									HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
+									memcpy(sendData, ACK_1, 2);
+									sendData[2] = 153; // start-mode
+									sendData[3] = 0;
+									sendData[4] = 10; // set current goal
+									sendData[5] = (~(sendData[0]+sendData[1]+sendData[2]));
+									HAL_UART_Transmit(&huart2, sendData, 6, 200);
 								}
 								else{
-									HAL_UART_Transmit_IT(&huart2, ACK_2, 2);
+									memcpy(sendData, ACK_2, 2);
+									sendData[2] = 153; // start-mode
+									sendData[3] = 0;
+									sendData[4] = 10; // set current goal
+									sendData[5] = (~(sendData[0]+sendData[1]+sendData[2]));
+									HAL_UART_Transmit(&huart2, sendData, 6, 200);
 								}
-								HAL_UART_Transmit_IT(&huart2, sendData, 4);
+//								for(int i = 0; i < 4; i++){
+//									HAL_UART_Transmit_IT(&huart2, sendData[i], 1);
+//								}
 								break;
 							case 0b10011010:
 								modeNo = 10;
 								posData = 10271; // data from zhong
-								sendData[0] = 154; // start-mode
-								sendData[1] = ((posData*65535)/16000) & 255; // set low byte posData
-								sendData[2] = ((posData*65535)/16000) >> 8; // set high byte posData
-								sendData[3] = (uint8_t)(~(sendData[0]+sendData[1]+sendData[2]));
 								if(runningFlag == 1){
-									HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
+									memcpy(sendData, ACK_1, 2);
+									sendData[2] = 154; // start-mode
+									sendData[3] = ((posData*65535)/16000) & 255; // set low byte posData
+									sendData[4] = ((posData*65535)/16000) >> 8; // set high byte posData
+									sendData[5] = (~(sendData[0]+sendData[1]+sendData[2]));
+									HAL_UART_Transmit(&huart2, sendData, 6, 200);
 								}
 								else{
-									HAL_UART_Transmit_IT(&huart2, ACK_2, 2);
+									memcpy(sendData, ACK_2, 2);
+									sendData[2] = 154; // start-mode
+									sendData[3] = ((posData*65535)/16000) & 255; // set low byte posData
+									sendData[4] = ((posData*65535)/16000) >> 8; // set high byte posData
+									sendData[5] = (~(sendData[0]+sendData[1]+sendData[2]));
+									HAL_UART_Transmit(&huart2, sendData, 6, 200);
 								}
-								HAL_UART_Transmit_IT(&huart2, sendData, 4);
 								break;
 							case 0b10011011:
 								modeNo = 11;
 								veloData = 2496;
-								sendData[0] = 155;
-								sendData[2] = ((veloData*255)/16000) & 255; // set low byte posData
-								sendData[3] = (uint8_t)(~(sendData[0]+sendData[1]+sendData[2]));
 								if(runningFlag == 1){
-									HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
+									memcpy(sendData, ACK_1, 2);
+									sendData[2] = 155;
+									sendData[4] = ((veloData*255)/16000) & 255; // set low byte posData
+									sendData[5] = (~(sendData[0]+sendData[1]+sendData[2]));
+									HAL_UART_Transmit(&huart2, sendData, 6, 200);
 								}
 								else{
-									HAL_UART_Transmit_IT(&huart2, ACK_2, 2);
+									memcpy(sendData, ACK_2, 2);
+									sendData[2] = 155;
+									sendData[4] = ((veloData*255)/16000) & 255; // set low byte posData
+									sendData[5] = (~(sendData[0]+sendData[1]+sendData[2]));
+									HAL_UART_Transmit(&huart2, sendData, 6, 200);
 								}
-								HAL_UART_Transmit_IT(&huart2, sendData, 4);
 								break;
 							case 0b10011100:
 								modeNo = 12;
@@ -448,7 +484,7 @@ void stateManagement(){
 							}
 							rxDataStart = (rxDataCount + 1) % huart2.RxXferSize;
 						}
-						else if((uint8_t)RxDataBuffer[rxDataStart] == (uint8_t)ACK_1[0] && (uint8_t)RxDataBuffer[rxDataStart+1] == (uint8_t)ACK_1[1]){
+						else if((uint8_t)RxDataBuffer[rxDataStart] == (uint8_t)ACK_1[0] || (uint8_t)RxDataBuffer[rxDataStart] == (uint8_t)ACK_1[1]){
 //							HAL_UART_Transmit_IT(&huart2, sendData, 4);
 							checkSum = 0;
 							modeNo = 99;
