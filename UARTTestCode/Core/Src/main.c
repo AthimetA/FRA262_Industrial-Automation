@@ -370,12 +370,14 @@ void stateManagement(){
 								break;
 							case 0b10010110:
 								modeNo = 6;
+								memset(uartGoal, 0, 15);
 								goalAmount = 1;
 								uartGoal[0] = RxDataBuffer[rxDataStart + 2];
 								HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
 								break;
 							case 0b10010111:
 								modeNo = 7;
+								memset(uartGoal, 0, 15);
 								goalAmount = RxDataBuffer[rxDataStart + 1];
 								for(int i = 0; i < ((goalAmount+1)/2); i++){
 									uartGoal[0+(i*2)] = RxDataBuffer[rxDataStart+(2+i)] & 15; // low 8 bit (last 4 bit)
@@ -391,8 +393,9 @@ void stateManagement(){
 							case 0b10011001:
 								modeNo = 9;
 								sendData[0] = 153; // start-mode
+								sendData[1] = 0;
 								sendData[2] = 10; // set current goal
-								sendData[3] = ~(sendData[0]+sendData[1]+sendData[2]);
+								sendData[3] = (uint8_t)(~(sendData[0]+sendData[1]+sendData[2]));
 								if(runningFlag == 1){
 									HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
 								}
@@ -407,7 +410,7 @@ void stateManagement(){
 								sendData[0] = 154; // start-mode
 								sendData[1] = ((posData*65535)/16000) & 255; // set low byte posData
 								sendData[2] = ((posData*65535)/16000) >> 8; // set high byte posData
-								sendData[3] = ~(sendData[0]+sendData[1]+sendData[2]);
+								sendData[3] = (uint8_t)(~(sendData[0]+sendData[1]+sendData[2]));
 								if(runningFlag == 1){
 									HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
 								}
@@ -421,7 +424,7 @@ void stateManagement(){
 								veloData = 2496;
 								sendData[0] = 155;
 								sendData[2] = ((veloData*255)/16000) & 255; // set low byte posData
-								sendData[3] = ~(sendData[0]+sendData[1]+sendData[2]);
+								sendData[3] = (uint8_t)(~(sendData[0]+sendData[1]+sendData[2]));
 								if(runningFlag == 1){
 									HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
 								}
