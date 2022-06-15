@@ -23,7 +23,6 @@
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
 #include <string.h>
-
 #include "PID.h"
 #include "Kalman.h"
 #include "arm_math.h"
@@ -38,15 +37,17 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define Endeff_ADDR 0b01000110
+#define Endeff_TEST 0x45
 /* Controller,Kalman parameters */
 #define dt  0.001f
 #define testDes 90.0f
-#define Kalmanvar  1.0f
-#define PID_KP  3.0f
+#define Kalmanvar  100.0f
+#define PID_KP  0.2f
 #define PID_KI  0.00001f
-#define PID_KD  1.2f
-#define PIDVELO_KP  12.0f
-#define PIDVELO_KI  1.5f
+#define PID_KD  0.12f
+#define PIDVELO_KP  16.0f
+#define PIDVELO_KI  0.02f
 #define PIDVELO_KD  0.0f
 #define PID_LIM_MIN_INT -10000.0f
 #define PID_LIM_MAX_INT  10000.0f
@@ -63,25 +64,17 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
- TIM_HandleTypeDef htim1;
+ I2C_HandleTypeDef hi2c1;
+
+TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
+TIM_HandleTypeDef htim4;
 TIM_HandleTypeDef htim11;
 
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-// UART PROTOCAL
-// Buffer
-uint8_t TxDataBuffer[32] = { 0 };
-uint8_t RxDataBuffer[32] = { 0 };
-uint8_t StartFramePosition = 0;
-uint8_t StopFramePosition = 0;
-uint8_t command = 0;
-uint8_t connected = 0;
-uint8_t ACK_1[2] = { 0x58, 0b01110101 };
-uint8_t ACK_2[2] = { 70, 0b01101110 };
-int16_t inputchar;
 /* Setup Microsec */
 uint64_t _micro = 0;
 /* Setup EncoderData */
@@ -93,22 +86,25 @@ float32_t VelocityDeg = 0;
 float32_t PositionRad = 0;
 /* Initialise Kalman Filter */
 KalmanFilterVar KalmanVar = {
-		{1,dt,0.5*dt*dt,0,1,dt,0,0,1},
-		{0,0,0},
-		{1,0,0},
-		{0},
-		{dt*dt*dt*dt*Kalmanvar/4,dt*dt*dt*Kalmanvar/2,dt*dt*Kalmanvar/2,dt*dt*dt*Kalmanvar/2,dt*dt*Kalmanvar,dt*Kalmanvar,dt*dt*Kalmanvar/2,dt*Kalmanvar,Kalmanvar},
-		{0.00000000001}, // Time delay = 0.1s - 0.2s
-		{0,0,((dt*dt*dt))/6,0,0,((dt*dt))/2,0,0,dt},
-		{0,0,0},
-		{0,0,0},
-		{0,0,0,0,0,0,0,0,0},
-		{0,0,0,0,0,0,0,0,0},
-		{0},
-		{0},
-		{0},
-		{0,0,0},
-		{1,0,0,0,1,0,0,0,1},
+		{1.0,dt,0.5*dt*dt,0,1.0,dt,0,0,1.0}, // A
+		{0,0,0}, // B
+		{1.0,0,0}, // C
+		{0}, // D
+		{dt*dt*dt*dt*Kalmanvar/4.0,dt*dt*dt*Kalmanvar/2.0,dt*dt*Kalmanvar/2.0,dt*dt*dt*Kalmanvar/2.0,dt*dt*Kalmanvar,dt*Kalmanvar,dt*dt*Kalmanvar/2.0,dt*Kalmanvar,Kalmanvar}, // Q
+//		{dt*dt*dt*dt*dt*dt*Kalmanvar/36.0,dt*dt*dt*dt*dt*Kalmanvar/12.0,dt*dt*dt*dt*Kalmanvar/6.0,dt*dt*dt*dt*dt*Kalmanvar/12.0,dt*dt*dt*dt*Kalmanvar/4.0,dt*dt*dt*Kalmanvar/2.0,dt*dt*dt*dt*Kalmanvar/6.0,dt*dt*dt*Kalmanvar/2.0,dt*dt*Kalmanvar},
+//		{0.0001}, //R
+		{0.00000000001}, //R
+		{0,0,((dt*dt*dt))/6.0,0,0,((dt*dt))/2.0,0,0,dt}, //G
+		{0,0,0}, // STATE X
+		{0,0,0}, // STATE X-1
+		{0,0,0,0,0,0,0,0,0}, // STATE P
+		{0,0,0,0,0,0,0,0,0}, // STATE P-1
+//		{1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0},
+		{0}, // Y
+		{0}, // Z
+		{0}, // S
+		{0,0,0}, // K
+		{1.0,0,0,0,1.0,0,0,0,1.0}, // I
 		{0},
 		{0},
 		{0},
@@ -144,6 +140,14 @@ static uint64_t CurrentTime =0;
 static uint64_t CheckLoopStartTime =0;
 static uint64_t CheckLoopStopTime =0;
 static uint64_t CheckLoopDiffTime =0;
+static uint8_t btncheck = 0;
+uint8_t I2CEndEffectorReadFlag = 0;
+uint8_t I2CEndEffectorWriteFlag = 0;
+static uint16_t len =1;
+static uint8_t dumdata[2] ={0};
+
+static uint64_t PWMupdate = 0;
+static uint16_t checkbtn = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -154,14 +158,18 @@ static void MX_TIM1_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_TIM11_Init(void);
+static void MX_I2C1_Init(void);
+static void MX_TIM4_Init(void);
 /* USER CODE BEGIN PFP */
-int16_t UARTRecieveIT();
 uint64_t Micros();
 uint32_t PWMAbs(int32_t PWM);
 void Drivemotor(int32_t PWM);
 void EncoderRead();
 float AbsVal(float number);
 void ControllLoopAndErrorHandler();
+void I2CWriteFcn(uint8_t *Wdata, uint16_t len, uint16_t MemAd);
+void I2CReadFcn(uint8_t *Rdata, uint16_t len, uint16_t MemAd);
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -202,12 +210,15 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM3_Init();
   MX_TIM11_Init();
+  MX_I2C1_Init();
+  MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
   KalmanMatrixInit(&KalmanVar);
   //////////////////////////
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
   HAL_TIM_Base_Start_IT (&htim11);
   HAL_TIM_Base_Start_IT (&htim3);
+  HAL_TIM_Base_Start_IT (&htim4);
   HAL_TIM_Encoder_Start(&htim2, TIM_CHANNEL_ALL);
   EncoderRawData[0]=TIM2->CNT;
   EncoderRawData[1]=EncoderRawData[0];
@@ -216,14 +227,15 @@ int main(void)
   PIDVelocityController_Init(&PidPos);
 
   CoefficientAndTimeCalculation(&traject,0.0,testDes);
+
+  btncheck = 0;
+  PWMupdate = 0;
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	HAL_UART_Receive_IT(&huart2,  (uint8_t*)RxDataBuffer, 32);
-	inputchar = UARTRecieveIT();
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -278,6 +290,40 @@ void SystemClock_Config(void)
 }
 
 /**
+  * @brief I2C1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_I2C1_Init(void)
+{
+
+  /* USER CODE BEGIN I2C1_Init 0 */
+
+  /* USER CODE END I2C1_Init 0 */
+
+  /* USER CODE BEGIN I2C1_Init 1 */
+
+  /* USER CODE END I2C1_Init 1 */
+  hi2c1.Instance = I2C1;
+  hi2c1.Init.ClockSpeed = 400000;
+  hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
+  hi2c1.Init.OwnAddress1 = 0;
+  hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c1.Init.OwnAddress2 = 0;
+  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN I2C1_Init 2 */
+
+  /* USER CODE END I2C1_Init 2 */
+
+}
+
+/**
   * @brief TIM1 Initialization Function
   * @param None
   * @retval None
@@ -297,7 +343,7 @@ static void MX_TIM1_Init(void)
 
   /* USER CODE END TIM1_Init 1 */
   htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 9;
+  htim1.Init.Prescaler = 0;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim1.Init.Period = 9999;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -437,6 +483,51 @@ static void MX_TIM3_Init(void)
 }
 
 /**
+  * @brief TIM4 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM4_Init(void)
+{
+
+  /* USER CODE BEGIN TIM4_Init 0 */
+
+  /* USER CODE END TIM4_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM4_Init 1 */
+
+  /* USER CODE END TIM4_Init 1 */
+  htim4.Instance = TIM4;
+  htim4.Init.Prescaler = 9;
+  htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim4.Init.Period = 9999;
+  htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim4, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim4, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM4_Init 2 */
+
+  /* USER CODE END TIM4_Init 2 */
+
+}
+
+/**
   * @brief TIM11 Initialization Function
   * @param None
   * @retval None
@@ -483,10 +574,10 @@ static void MX_USART2_UART_Init(void)
 
   /* USER CODE END USART2_Init 1 */
   huart2.Instance = USART2;
-  huart2.Init.BaudRate = 512000;
-  huart2.Init.WordLength = UART_WORDLENGTH_9B;
+  huart2.Init.BaudRate = 115200;
+  huart2.Init.WordLength = UART_WORDLENGTH_8B;
   huart2.Init.StopBits = UART_STOPBITS_1;
-  huart2.Init.Parity = UART_PARITY_EVEN;
+  huart2.Init.Parity = UART_PARITY_NONE;
   huart2.Init.Mode = UART_MODE_TX_RX;
   huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
   huart2.Init.OverSampling = UART_OVERSAMPLING_16;
@@ -518,6 +609,9 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, LD2_Pin|PIN_DIR_Pin, GPIO_PIN_RESET);
 
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOB, Pin_Relay1_Pin|Pin_Relay2_Pin, GPIO_PIN_RESET);
+
   /*Configure GPIO pin : B1_Pin */
   GPIO_InitStruct.Pin = B1_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
@@ -530,6 +624,32 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : Pin_Proxi_Pin */
+  GPIO_InitStruct.Pin = Pin_Proxi_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(Pin_Proxi_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : Pin_Relay1_Pin Pin_Relay2_Pin */
+  GPIO_InitStruct.Pin = Pin_Relay1_Pin|Pin_Relay2_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : Pin_Emer_Pin */
+  GPIO_InitStruct.Pin = Pin_Emer_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(Pin_Emer_GPIO_Port, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 
 }
 
@@ -562,19 +682,19 @@ uint32_t PWMAbs(int32_t PWM)
 
 
 void Drivemotor(int32_t PWM){
-	if(PWM<=0 && PWM>=-PWM_MAX){
-		htim1.Instance->CCR1=PWMAbs(PWM);
-		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9,0);
-	}else if (PWM<-PWM_MAX){
-		htim1.Instance->CCR1=PWM_MAX;
-		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9,0);
-	}else if(PWM>=0 && PWM<=PWM_MAX){
-		htim1.Instance->CCR1=PWMAbs(PWM);
-		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9,1);
-	}else if(PWM>PWM_MAX){
-		htim1.Instance->CCR1=PWM_MAX;
-		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9,1);
-	}
+		if(PWM<=0 && PWM>=-PWM_MAX){
+			htim1.Instance->CCR1=PWMAbs(PWM);
+			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9,0);
+		}else if (PWM<-PWM_MAX){
+			htim1.Instance->CCR1=PWM_MAX;
+			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9,0);
+		}else if(PWM>=0 && PWM<=PWM_MAX){
+			htim1.Instance->CCR1=PWMAbs(PWM);
+			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9,1);
+		}else if(PWM>PWM_MAX){
+			htim1.Instance->CCR1=PWM_MAX;
+			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9,1);
+		}
 }
 
 float AbsVal(float number)
@@ -592,37 +712,95 @@ float AbsVal(float number)
 void ControllLoopAndErrorHandler()
 {
 	CurrentTime = Micros();
-	setpoint = TrajectoryEvaluation(&traject,StartTime,CurrentTime);
-	EncoderRead();
-	KalmanFilterFunction(&KalmanVar,PositionDeg);
-	  if (flagT == 0)
-	  {
-	    StartTime = Micros();
-	    flagT =1;
-	  }
-	  if(AbsVal(testDes - PositionDeg) < 0.15 && AbsVal(KalmanVar.MatState_Data[1]) < 1.0)
-	  {
-	    PWMCHECKER = 0.0;
-	    Drivemotor(PWMCHECKER);
-	  }
-	  else
-	  {
-		PIDVelocityController_Update(&PidPos,traject.QX, PositionDeg);
-		PIDVelocityController_Update(&PidVelo, traject.QV + PidPos.ControllerOut , KalmanVar.MatState_Data[1]);
-		PWMCHECKER = PidVelo.ControllerOut;
-		Drivemotor(PWMCHECKER);
-	  }
+	Drivemotor(2000.0);
+//	setpoint = TrajectoryEvaluation(&traject,StartTime,CurrentTime);
+//	setpoint = 180.0;
+//	PIDVelocityController_Update(&PidPos,setpoint, PositionDeg);
+//	PIDVelocityController_Update(&PidVelo, PidPos.ControllerOut , KalmanVar.MatState_Data[1]);
+////	PWMCHECKER = PidVelo.ControllerOut;
+//	Drivemotor(PidVelo.ControllerOut);
+//	  if (flagT == 0)
+//	  {
+//	    StartTime = Micros();
+//	    flagT =1;
+//	  }
+//	  if(AbsVal(testDes - PositionDeg) < 0.5 && AbsVal(KalmanVar.MatState_Data[1]) < 1.0)
+//	  {
+//	    PWMCHECKER = 0.0;
+//	    Drivemotor(PWMCHECKER);
+//	  }
+//	  else
+//	  {
+//		PIDVelocityController_Update(&PidPos,traject.QX, PositionDeg);
+//		PIDVelocityController_Update(&PidVelo, traject.QV + PidPos.ControllerOut , KalmanVar.MatState_Data[1]);
+//		PWMCHECKER = PidVelo.ControllerOut;
+//		Drivemotor(PWMCHECKER);
+//	  }
 }
 
+void I2CWriteFcn(uint8_t *Wdata, uint16_t len, uint16_t MemAd) {
+	if (I2CEndEffectorWriteFlag && hi2c1.State == HAL_I2C_STATE_READY) {
+		static uint8_t data;
+		data = Wdata[0];
+		HAL_I2C_Master_Transmit_IT(&hi2c1, MemAd, Wdata, len);
+//		HAL_I2C_Mem_Write_IT(&hi2c1, DevAddress, MemAddress, MemAddSize, pData, Size);
+		I2CEndEffectorWriteFlag = 0;
+	}
+}
+void I2CReadFcn(uint8_t *Rdata, uint16_t len, uint16_t MemAd) {
+	if (I2CEndEffectorReadFlag && hi2c1.State == HAL_I2C_STATE_READY) {
+//		static uint8_t data;
+//		data = Rdata;
+//		HAL_I2C_Mem_Read_IT(&hi2c1, DevAddress, MemAddress, MemAddSize, pData, Size)
+//		HAL_I2C_Master_Receive_IT(&hi2c1, DevAddress, pData, Size);
+		I2CEndEffectorReadFlag = 0;
+	}
+}
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+//	if(GPIO_Pin == GPIO_PIN_13)
+//	{
+//		btncheck++;
+////		I2CWriteFcn(0x23,8,Endeff_ADDR);
+//		len = 1;
+//		dumdata[0] = 0x45;
+//		I2CEndEffectorWriteFlag = 1;
+//		I2CWriteFcn(dumdata,len,Endeff_ADDR);
+////		HAL_I2C_Master_Transmit_IT(&hi2c1, Endeff_ADDR, 0b01000101, 1);
+////		HAL_I2C_Mem_Write_IT(&hi2c1, Endeff_ADDR, Endeff_TEST, I2C_MEMADD_SIZE_16BIT, pData, Size);
+//	}
+	if(GPIO_Pin == GPIO_PIN_10)
+	{
+//		HAL_GPIO_WritePin(GPIOx, GPIO_Pin, PinState)
+		HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_3);
+	}
+	if(GPIO_Pin == GPIO_PIN_5)
+	{
+//		HAL_GPIO_WritePin(GPIOx, GPIO_Pin, PinState)
+		HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_4);
+		btncheck++;
+	}
+}
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	if (htim == &htim11) {
 		_micro += 65535;
 	}
-	if (htim == &htim3) {
+	else if (htim == &htim3) {
+		ControllLoopAndErrorHandler();
+		CheckLoopStopTime = Micros();
+	}
+	else if (htim == &htim4) {
 		CheckLoopStartTime = Micros();
 		//
-		ControllLoopAndErrorHandler();
+		EncoderRead();
+		KalmanFilterFunction(&KalmanVar,PositionDeg);
+//		setpoint = 180.0;
+		PIDVelocityController_Update(&PidPos,setpoint, PositionDeg);
+		PIDVelocityController_Update(&PidVelo, PidPos.ControllerOut , KalmanVar.MatState_Data[1]);
+	//	PWMCHECKER = PidVelo.ControllerOut;
+		//
 		CheckLoopStopTime = Micros();
 		CheckLoopDiffTime = CheckLoopStopTime - CheckLoopStartTime;
 		}
@@ -630,40 +808,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 
 uint64_t Micros(){
 	return _micro + TIM11->CNT;
-}
-
-int16_t UARTRecieveIT()
-{
-	static uint8_t sum = 0;
-	static uint8_t str_idx = 0;
-	static uint32_t dataPos = 0;
-	if (huart2.RxXferSize - huart2.RxXferCount != dataPos)
-	{
-		if ((uint8_t)RxDataBuffer[dataPos]==(uint8_t)(~sum)) {
-			sum = 0;
-			switch (RxDataBuffer[str_idx]) {
-			case 0b10010010:
-				//mode 2
-				connected = 2;
-				HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
-				break;
-			case 0b10010011:
-				//mode 3
-				connected = 3;
-				HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
-				break;
-			case 0b10011110:
-				//mode 14
-				connected = 14;
-				HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
-				break;
-			}
-			str_idx = (dataPos + 1) % huart2.RxXferSize;
-		} else {
-			sum = sum+RxDataBuffer[dataPos];
-		}
-		dataPos = (dataPos + 1) % huart2.RxXferSize;
-	}
 }
 /* USER CODE END 4 */
 

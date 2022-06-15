@@ -44,7 +44,6 @@ float PIDVelocityController_Update(PIDVelocityController *pidVelocity, float set
     } else if (pidVelocity->ControllerOut < pidVelocity->OutputMin) {
 
     	pidVelocity->ControllerOut = pidVelocity->OutputMin;
-
     }
 
     // Controller Memory
