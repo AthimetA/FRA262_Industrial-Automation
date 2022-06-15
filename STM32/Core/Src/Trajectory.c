@@ -9,27 +9,16 @@
 #include "Trajectory.h"
 
 
-float VmaxOptimization(float Qinitial, float Qfinal){
-	float Qrelative = Qfinal - Qinitial;
-	float Vmax = -1;
-	if(Qrelative >= 1.0  && Qrelative < 20.0)
-	{
-		Vmax = 0.7f;
-	}
-	else if(Qrelative >= 20.0  && Qrelative < 60.0)
-	{
-		Vmax = 3.0f;
-	}
-	else if(Qrelative >= 60.0  && Qrelative < 160.0)
-	{
-		Vmax = 6.0f;
-	}
-	else if(Qrelative >= 160.0)
-	{
-		Vmax = 8.0f;
-	}
-	// RPM to deg/sec
-	return Vmax *360.0/60.0;
+float AbsVal(float number)
+{
+  if(number<0)
+  {
+    return number*-1.0;
+  }
+  else
+  {
+    return number;
+  }
 }
 
 void CoefficientAndTimeCalculation(TrajectoryG *traject, float Qinitial, float Qfinal){
@@ -37,12 +26,51 @@ void CoefficientAndTimeCalculation(TrajectoryG *traject, float Qinitial, float Q
 	traject -> Qin = Qinitial;
 	traject -> Qfinal = Qfinal;
 	// Set initial = 0;
-	float Qrelative = Qfinal - Qinitial;
-	// Set Vmax
-	traject -> Vmax = VmaxOptimization(Qinitial,Qfinal);
+	traject -> QRelative = traject -> Qfinal - traject -> Qin;
+
+	// Set Vmax Amax Jmax
+	float gain = 0.0;
+	// Check Direction
+	if(traject -> QRelative < 0.0)
+	{
+		gain = -1.0;
+		traject -> Amax =  -17.19; // 0.3 rad/s^2 to deg/sec^2
+		traject -> Jmax =  -114.6; // 2.0 rad/s^3 to deg/sec^3
+	}
+	else
+	{
+		gain = 1.0;
+		traject -> Amax =  17.19; // 0.3 rad/s^2 to deg/sec^2
+		traject -> Jmax =  114.6; // 2.0 rad/s^3 to deg/sec^3
+	}
+	// Find Speed limit
+	float Vmax = 0.0;
+	float Vcheck = AbsVal(traject -> QRelative);
+	if(Vcheck >= 1.0  && Vcheck < 20.0)
+	{
+		Vmax = 0.4f;
+	}
+	else if(Vcheck >= 20.0  && Vcheck < 60.0)
+	{
+		Vmax = 2.0f;
+	}
+	else if(Vcheck >= 60.0  && Vcheck < 100.0)
+	{
+		Vmax = 4.0f;
+	}
+	else if(Vcheck >= 100.0  && Vcheck < 160.0)
+	{
+		Vmax = 6.0f;
+	}
+	else if(Vcheck >= 160.0)
+	{
+		Vmax = 8.0f;
+	}
+	// RPM to deg/sec with Direction
+	traject -> Vmax =  (Vmax *360.0/60.0)*gain;
 
 	// Calculate time
-	traject -> T[6] = (traject -> Amax/traject -> Jmax) + (traject -> Vmax/traject -> Amax) + (Qrelative/traject -> Vmax);
+	traject -> T[6] = (traject -> Amax/traject -> Jmax) + (traject -> Vmax/traject -> Amax) + (traject -> QRelative/traject -> Vmax);
 	traject -> T[0] = (traject -> Amax/traject -> Jmax);
 	traject -> T[1] = (traject -> Vmax/traject -> Amax);
 	traject -> T[2] = (traject -> Amax/traject -> Jmax) + (traject -> Vmax/traject -> Amax);
@@ -110,7 +138,7 @@ void CoefficientAndTimeCalculation(TrajectoryG *traject, float Qinitial, float Q
 }
 
 
-float TrajectoryEvaluation(TrajectoryG *traject , uint64_t StartTime, uint64_t CurrentTime){
+void TrajectoryEvaluation(TrajectoryG *traject , uint64_t StartTime, uint64_t CurrentTime){
 	// Microsec to sec
 	static float t = 0;
 	t  = (CurrentTime - StartTime)/1000000.0;
@@ -120,49 +148,49 @@ float TrajectoryEvaluation(TrajectoryG *traject , uint64_t StartTime, uint64_t C
 		traject -> QJ = traject -> A[0];
 		traject -> QA = traject -> A[0]*t + traject -> B[0];
 		traject -> QV = traject -> A[0]*(t*t)/2 + traject -> B[0]*t + traject -> C[0];
-		traject -> QX = traject -> A[0]*(t*t*t)/6 + traject -> B[0]*(t*t)/2 + traject -> C[0]*t + traject -> D[0];
+		traject -> QX = traject -> Qin + traject -> A[0]*(t*t*t)/6 + traject -> B[0]*(t*t)/2 + traject -> C[0]*t + traject -> D[0];
 	}
 	else if( t >= traject -> T[0] && t < traject -> T[1])
 	{
 		traject -> QJ = traject -> A[1];
 		traject -> QA = traject -> A[1]*t + traject -> B[1];
 		traject -> QV = traject -> A[1]*(t*t)/2 + traject -> B[1]*t + traject -> C[1];
-		traject -> QX = traject -> A[1]*(t*t*t)/6 + traject -> B[1]*(t*t)/2 + traject -> C[1]*t + traject -> D[1];
+		traject -> QX = traject -> Qin + traject -> A[1]*(t*t*t)/6 + traject -> B[1]*(t*t)/2 + traject -> C[1]*t + traject -> D[1];
 	}
 	else if( t >= traject -> T[1] && t < traject -> T[2])
 	{
 		traject -> QJ = traject -> A[2];
 		traject -> QA = traject -> A[2]*t + traject -> B[2];
 		traject -> QV = traject -> A[2]*(t*t)/2 + traject -> B[2]*t + traject -> C[2];
-		traject -> QX = traject -> A[2]*(t*t*t)/6 + traject -> B[2]*(t*t)/2 + traject -> C[2]*t + traject -> D[2];
+		traject -> QX = traject -> Qin + traject -> A[2]*(t*t*t)/6 + traject -> B[2]*(t*t)/2 + traject -> C[2]*t + traject -> D[2];
 	}
 	else if( t >= traject -> T[2] && t < traject -> T[3])
 	{
 		traject -> QJ = traject -> A[3];
 		traject -> QA = traject -> A[3]*t + traject -> B[3];
 		traject -> QV = traject -> A[3]*(t*t)/2 + traject -> B[3]*t + traject -> C[3];
-		traject -> QX = traject -> A[3]*(t*t*t)/6 + traject -> B[3]*(t*t)/2 + traject -> C[3]*t + traject -> D[3];
+		traject -> QX = traject -> Qin + traject -> A[3]*(t*t*t)/6 + traject -> B[3]*(t*t)/2 + traject -> C[3]*t + traject -> D[3];
 	}
 	else if( t >= traject -> T[3] && t < traject -> T[4])
 	{
 		traject -> QJ = traject -> A[4];
 		traject -> QA = traject -> A[4]*t + traject -> B[4];
 		traject -> QV = traject -> A[4]*(t*t)/2 + traject -> B[4]*t + traject -> C[4];
-		traject -> QX = traject -> A[4]*(t*t*t)/6 + traject -> B[4]*(t*t)/2 + traject -> C[4]*t + traject -> D[4];
+		traject -> QX = traject -> Qin + traject -> A[4]*(t*t*t)/6 + traject -> B[4]*(t*t)/2 + traject -> C[4]*t + traject -> D[4];
 	}
 	else if( t >= traject -> T[4] && t < traject -> T[5])
 	{
 		traject -> QJ = traject -> A[5];
 		traject -> QA = traject -> A[5]*t + traject -> B[5];
 		traject -> QV = traject -> A[5]*(t*t)/2 + traject -> B[5]*t + traject -> C[5];
-		traject -> QX = traject -> A[5]*(t*t*t)/6 + traject -> B[5]*(t*t)/2 + traject -> C[5]*t + traject -> D[5];
+		traject -> QX = traject -> Qin + traject -> A[5]*(t*t*t)/6 + traject -> B[5]*(t*t)/2 + traject -> C[5]*t + traject -> D[5];
 	}
 	else if( t >= traject -> T[5] && t < traject -> T[6])
 	{
 		traject -> QJ = traject -> A[6];
 		traject -> QA = traject -> A[6]*t + traject -> B[6];
 		traject -> QV = traject -> A[6]*(t*t)/2 + traject -> B[6]*t + traject -> C[6];
-		traject -> QX = traject -> A[6]*(t*t*t)/6 + traject -> B[6]*(t*t)/2 + traject -> C[6]*t + traject -> D[6];
+		traject -> QX = traject -> Qin + traject -> A[6]*(t*t*t)/6 + traject -> B[6]*(t*t)/2 + traject -> C[6]*t + traject -> D[6];
 	}
 	else
 	{
@@ -172,5 +200,5 @@ float TrajectoryEvaluation(TrajectoryG *traject , uint64_t StartTime, uint64_t C
 		traject -> QX = traject -> Qfinal;
 	}
 
-	return traject -> QV;
+	return 1.0;
 }

@@ -1,3 +1,4 @@
-../Core/Src/Trajectory.c:12:7:VmaxOptimization	24	static
-../Core/Src/Trajectory.c:35:6:CoefficientAndTimeCalculation	40	static
-../Core/Src/Trajectory.c:113:7:TrajectoryEvaluation	32	static
+../Core/Src/Trajectory.c:12:7:AbsVal	16	static
+../Core/Src/Trajectory.c:24:6:TrajectoryConfig	40	static
+../Core/Src/Trajectory.c:66:6:CoefficientAndTimeCalculation	56	static
+../Core/Src/Trajectory.c:183:6:TrajectoryEvaluation	32	static

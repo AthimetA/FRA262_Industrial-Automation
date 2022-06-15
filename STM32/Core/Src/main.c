@@ -226,7 +226,7 @@ int main(void)
   PIDVelocityController_Init(&PidVelo);
   PIDVelocityController_Init(&PidPos);
 
-  CoefficientAndTimeCalculation(&traject,0.0,testDes);
+  CoefficientAndTimeCalculation(&traject,-150.0,-90.0);
 
   btncheck = 0;
   PWMupdate = 0;
@@ -697,23 +697,12 @@ void Drivemotor(int32_t PWM){
 		}
 }
 
-float AbsVal(float number)
-{
-  if(number<0)
-  {
-    return number*-1.0;
-  }
-  else
-  {
-    return number;
-  }
-}
 
 void ControllLoopAndErrorHandler()
 {
 	CurrentTime = Micros();
 	Drivemotor(2000.0);
-//	setpoint = TrajectoryEvaluation(&traject,StartTime,CurrentTime);
+	TrajectoryEvaluation(&traject,StartTime,CurrentTime);
 //	setpoint = 180.0;
 //	PIDVelocityController_Update(&PidPos,setpoint, PositionDeg);
 //	PIDVelocityController_Update(&PidVelo, PidPos.ControllerOut , KalmanVar.MatState_Data[1]);
