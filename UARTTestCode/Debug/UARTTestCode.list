@@ -1182,15 +1182,15 @@ void stateManagement(){
  8000a0a:	4b2b      	ldr	r3, [pc, #172]	; (8000ab8 <stateManagement+0x2d0>)
  8000a0c:	220a      	movs	r2, #10
  8000a0e:	711a      	strb	r2, [r3, #4]
-									sendData[5] = (~(sendData[0]+sendData[1]+sendData[2]));
+									sendData[5] = (~(sendData[2]+sendData[3]+sendData[4]));
  8000a10:	4b29      	ldr	r3, [pc, #164]	; (8000ab8 <stateManagement+0x2d0>)
- 8000a12:	781a      	ldrb	r2, [r3, #0]
+ 8000a12:	789a      	ldrb	r2, [r3, #2]
  8000a14:	4b28      	ldr	r3, [pc, #160]	; (8000ab8 <stateManagement+0x2d0>)
- 8000a16:	785b      	ldrb	r3, [r3, #1]
+ 8000a16:	78db      	ldrb	r3, [r3, #3]
  8000a18:	4413      	add	r3, r2
  8000a1a:	b2da      	uxtb	r2, r3
  8000a1c:	4b26      	ldr	r3, [pc, #152]	; (8000ab8 <stateManagement+0x2d0>)
- 8000a1e:	789b      	ldrb	r3, [r3, #2]
+ 8000a1e:	791b      	ldrb	r3, [r3, #4]
  8000a20:	4413      	add	r3, r2
  8000a22:	b2db      	uxtb	r3, r3
  8000a24:	43db      	mvns	r3, r3
@@ -1222,15 +1222,15 @@ void stateManagement(){
  8000a4e:	4b1a      	ldr	r3, [pc, #104]	; (8000ab8 <stateManagement+0x2d0>)
  8000a50:	220a      	movs	r2, #10
  8000a52:	711a      	strb	r2, [r3, #4]
-									sendData[5] = (~(sendData[0]+sendData[1]+sendData[2]));
+									sendData[5] = (~(sendData[2]+sendData[3]+sendData[4]));
  8000a54:	4b18      	ldr	r3, [pc, #96]	; (8000ab8 <stateManagement+0x2d0>)
- 8000a56:	781a      	ldrb	r2, [r3, #0]
+ 8000a56:	789a      	ldrb	r2, [r3, #2]
  8000a58:	4b17      	ldr	r3, [pc, #92]	; (8000ab8 <stateManagement+0x2d0>)
- 8000a5a:	785b      	ldrb	r3, [r3, #1]
+ 8000a5a:	78db      	ldrb	r3, [r3, #3]
  8000a5c:	4413      	add	r3, r2
  8000a5e:	b2da      	uxtb	r2, r3
  8000a60:	4b15      	ldr	r3, [pc, #84]	; (8000ab8 <stateManagement+0x2d0>)
- 8000a62:	789b      	ldrb	r3, [r3, #2]
+ 8000a62:	791b      	ldrb	r3, [r3, #4]
  8000a64:	4413      	add	r3, r2
  8000a66:	b2db      	uxtb	r3, r3
  8000a68:	43db      	mvns	r3, r3
@@ -1315,15 +1315,15 @@ void stateManagement(){
  8000b1c:	b2da      	uxtb	r2, r3
  8000b1e:	4b94      	ldr	r3, [pc, #592]	; (8000d70 <stateManagement+0x588>)
  8000b20:	711a      	strb	r2, [r3, #4]
-									sendData[5] = (~(sendData[0]+sendData[1]+sendData[2]));
+									sendData[5] = (~(sendData[2]+sendData[3]+sendData[4]));
  8000b22:	4b93      	ldr	r3, [pc, #588]	; (8000d70 <stateManagement+0x588>)
- 8000b24:	781a      	ldrb	r2, [r3, #0]
+ 8000b24:	789a      	ldrb	r2, [r3, #2]
  8000b26:	4b92      	ldr	r3, [pc, #584]	; (8000d70 <stateManagement+0x588>)
- 8000b28:	785b      	ldrb	r3, [r3, #1]
+ 8000b28:	78db      	ldrb	r3, [r3, #3]
  8000b2a:	4413      	add	r3, r2
  8000b2c:	b2da      	uxtb	r2, r3
  8000b2e:	4b90      	ldr	r3, [pc, #576]	; (8000d70 <stateManagement+0x588>)
- 8000b30:	789b      	ldrb	r3, [r3, #2]
+ 8000b30:	791b      	ldrb	r3, [r3, #4]
  8000b32:	4413      	add	r3, r2
  8000b34:	b2db      	uxtb	r3, r3
  8000b36:	43db      	mvns	r3, r3
@@ -1378,15 +1378,15 @@ void stateManagement(){
  8000b92:	b2da      	uxtb	r2, r3
  8000b94:	4b76      	ldr	r3, [pc, #472]	; (8000d70 <stateManagement+0x588>)
  8000b96:	711a      	strb	r2, [r3, #4]
-									sendData[5] = (~(sendData[0]+sendData[1]+sendData[2]));
+									sendData[5] = (~(sendData[2]+sendData[3]+sendData[4]));
  8000b98:	4b75      	ldr	r3, [pc, #468]	; (8000d70 <stateManagement+0x588>)
- 8000b9a:	781a      	ldrb	r2, [r3, #0]
+ 8000b9a:	789a      	ldrb	r2, [r3, #2]
  8000b9c:	4b74      	ldr	r3, [pc, #464]	; (8000d70 <stateManagement+0x588>)
- 8000b9e:	785b      	ldrb	r3, [r3, #1]
+ 8000b9e:	78db      	ldrb	r3, [r3, #3]
  8000ba0:	4413      	add	r3, r2
  8000ba2:	b2da      	uxtb	r2, r3
  8000ba4:	4b72      	ldr	r3, [pc, #456]	; (8000d70 <stateManagement+0x588>)
- 8000ba6:	789b      	ldrb	r3, [r3, #2]
+ 8000ba6:	791b      	ldrb	r3, [r3, #4]
  8000ba8:	4413      	add	r3, r2
  8000baa:	b2db      	uxtb	r3, r3
  8000bac:	43db      	mvns	r3, r3
@@ -1438,15 +1438,15 @@ void stateManagement(){
  8000bfe:	b2da      	uxtb	r2, r3
  8000c00:	4b5b      	ldr	r3, [pc, #364]	; (8000d70 <stateManagement+0x588>)
  8000c02:	711a      	strb	r2, [r3, #4]
-									sendData[5] = (~(sendData[0]+sendData[1]+sendData[2]));
+									sendData[5] = (~(sendData[2]+sendData[3]+sendData[4]));
  8000c04:	4b5a      	ldr	r3, [pc, #360]	; (8000d70 <stateManagement+0x588>)
- 8000c06:	781a      	ldrb	r2, [r3, #0]
+ 8000c06:	789a      	ldrb	r2, [r3, #2]
  8000c08:	4b59      	ldr	r3, [pc, #356]	; (8000d70 <stateManagement+0x588>)
- 8000c0a:	785b      	ldrb	r3, [r3, #1]
+ 8000c0a:	78db      	ldrb	r3, [r3, #3]
  8000c0c:	4413      	add	r3, r2
  8000c0e:	b2da      	uxtb	r2, r3
  8000c10:	4b57      	ldr	r3, [pc, #348]	; (8000d70 <stateManagement+0x588>)
- 8000c12:	789b      	ldrb	r3, [r3, #2]
+ 8000c12:	791b      	ldrb	r3, [r3, #4]
  8000c14:	4413      	add	r3, r2
  8000c16:	b2db      	uxtb	r3, r3
  8000c18:	43db      	mvns	r3, r3
@@ -1485,15 +1485,15 @@ void stateManagement(){
  8000c54:	b2da      	uxtb	r2, r3
  8000c56:	4b46      	ldr	r3, [pc, #280]	; (8000d70 <stateManagement+0x588>)
  8000c58:	711a      	strb	r2, [r3, #4]
-									sendData[5] = (~(sendData[0]+sendData[1]+sendData[2]));
+									sendData[5] = (~(sendData[2]+sendData[3]+sendData[4]));
  8000c5a:	4b45      	ldr	r3, [pc, #276]	; (8000d70 <stateManagement+0x588>)
- 8000c5c:	781a      	ldrb	r2, [r3, #0]
+ 8000c5c:	789a      	ldrb	r2, [r3, #2]
  8000c5e:	4b44      	ldr	r3, [pc, #272]	; (8000d70 <stateManagement+0x588>)
- 8000c60:	785b      	ldrb	r3, [r3, #1]
+ 8000c60:	78db      	ldrb	r3, [r3, #3]
  8000c62:	4413      	add	r3, r2
  8000c64:	b2da      	uxtb	r2, r3
  8000c66:	4b42      	ldr	r3, [pc, #264]	; (8000d70 <stateManagement+0x588>)
- 8000c68:	789b      	ldrb	r3, [r3, #2]
+ 8000c68:	791b      	ldrb	r3, [r3, #4]
  8000c6a:	4413      	add	r3, r2
  8000c6c:	b2db      	uxtb	r3, r3
  8000c6e:	43db      	mvns	r3, r3

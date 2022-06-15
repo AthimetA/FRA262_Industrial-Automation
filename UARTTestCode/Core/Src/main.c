@@ -416,7 +416,7 @@ void stateManagement(){
 									sendData[2] = 153; // start-mode
 									sendData[3] = 0;
 									sendData[4] = 10; // set current goal
-									sendData[5] = (~(sendData[0]+sendData[1]+sendData[2]));
+									sendData[5] = (~(sendData[2]+sendData[3]+sendData[4]));
 									HAL_UART_Transmit(&huart2, sendData, 6, 200);
 								}
 								else{
@@ -424,7 +424,7 @@ void stateManagement(){
 									sendData[2] = 153; // start-mode
 									sendData[3] = 0;
 									sendData[4] = 10; // set current goal
-									sendData[5] = (~(sendData[0]+sendData[1]+sendData[2]));
+									sendData[5] = (~(sendData[2]+sendData[3]+sendData[4]));
 									HAL_UART_Transmit(&huart2, sendData, 6, 200);
 								}
 //								for(int i = 0; i < 4; i++){
@@ -439,7 +439,7 @@ void stateManagement(){
 									sendData[2] = 154; // start-mode
 									sendData[3] = ((posData*65535)/16000) & 255; // set low byte posData
 									sendData[4] = ((posData*65535)/16000) >> 8; // set high byte posData
-									sendData[5] = (~(sendData[0]+sendData[1]+sendData[2]));
+									sendData[5] = (~(sendData[2]+sendData[3]+sendData[4]));
 									HAL_UART_Transmit(&huart2, sendData, 6, 200);
 								}
 								else{
@@ -447,7 +447,7 @@ void stateManagement(){
 									sendData[2] = 154; // start-mode
 									sendData[3] = ((posData*65535)/16000) & 255; // set low byte posData
 									sendData[4] = ((posData*65535)/16000) >> 8; // set high byte posData
-									sendData[5] = (~(sendData[0]+sendData[1]+sendData[2]));
+									sendData[5] = (~(sendData[2]+sendData[3]+sendData[4]));
 									HAL_UART_Transmit(&huart2, sendData, 6, 200);
 								}
 								break;
@@ -458,14 +458,14 @@ void stateManagement(){
 									memcpy(sendData, ACK_1, 2);
 									sendData[2] = 155;
 									sendData[4] = ((veloData*255)/16000) & 255; // set low byte posData
-									sendData[5] = (~(sendData[0]+sendData[1]+sendData[2]));
+									sendData[5] = (~(sendData[2]+sendData[3]+sendData[4]));
 									HAL_UART_Transmit(&huart2, sendData, 6, 200);
 								}
 								else{
 									memcpy(sendData, ACK_2, 2);
 									sendData[2] = 155;
 									sendData[4] = ((veloData*255)/16000) & 255; // set low byte posData
-									sendData[5] = (~(sendData[0]+sendData[1]+sendData[2]));
+									sendData[5] = (~(sendData[2]+sendData[3]+sendData[4]));
 									HAL_UART_Transmit(&huart2, sendData, 6, 200);
 								}
 								break;
