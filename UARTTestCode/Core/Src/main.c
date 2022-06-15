@@ -136,14 +136,13 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  HAL_UART_Receive_IT(&huart2, &RxDataBuffer, 32);
+	  HAL_UART_Receive_IT(&huart2, RxDataBuffer, 32);
 	  stateManagement();
 
 	  if(micros() - timeElapsed > 10000000){
 		  timeElapsed = micros();
 		  if(runningFlag == 1){
 			  runningFlag = 0;
-			  HAL_UART_Transmit_IT(&huart2, ACK_2, 2);
 		  }
 	  }
 
@@ -158,7 +157,7 @@ int main(void)
 //	  }
 //	  B1State[1] = B1State[0];
 
-	  HAL_Delay(200);
+//	  HAL_Delay(200);
 //
 //	  sprintf(TxDataBuffer, "Got: [%c]\r\n", RxDataBuffer);
 //	  HAL_UART_Transmit(&huart2, (uint16_t*)TxDataBuffer, strlen(TxDataBuffer), 1000);
@@ -393,29 +392,44 @@ void stateManagement(){
 								break;
 							case 0b10011001:
 								modeNo = 9;
-								HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
 								sendData[0] = 153; // start-mode
 								sendData[2] = 10; // set current goal
 								sendData[3] = ~(sendData[0]+sendData[1]+sendData[2]);
+								if(runningFlag == 1){
+									HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
+								}
+								else{
+									HAL_UART_Transmit_IT(&huart2, ACK_2, 2);
+								}
 								HAL_UART_Transmit_IT(&huart2, sendData, 4);
 								break;
 							case 0b10011010:
 								modeNo = 10;
-								HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
 								posData = 10271; // data from zhong
 								sendData[0] = 154; // start-mode
 								sendData[1] = ((posData*65535)/16000) & 255; // set low byte posData
 								sendData[2] = ((posData*65535)/16000) >> 8; // set high byte posData
 								sendData[3] = ~(sendData[0]+sendData[1]+sendData[2]);
+								if(runningFlag == 1){
+									HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
+								}
+								else{
+									HAL_UART_Transmit_IT(&huart2, ACK_2, 2);
+								}
 								HAL_UART_Transmit_IT(&huart2, sendData, 4);
 								break;
 							case 0b10011011:
 								modeNo = 11;
-								HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
 								veloData = 2496;
 								sendData[0] = 155;
 								sendData[2] = ((veloData*255)/16000) & 255; // set low byte posData
 								sendData[3] = ~(sendData[0]+sendData[1]+sendData[2]);
+								if(runningFlag == 1){
+									HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
+								}
+								else{
+									HAL_UART_Transmit_IT(&huart2, ACK_2, 2);
+								}
 								HAL_UART_Transmit_IT(&huart2, sendData, 4);
 								break;
 							case 0b10011100:
@@ -431,7 +445,13 @@ void stateManagement(){
 								HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
 								break;
 							}
-							rxDataStart = (rxDataCount + 1) % huart2.RxXferSize; // might have to redo
+							rxDataStart = (rxDataCount + 1) % huart2.RxXferSize;
+						}
+						else if((uint8_t)RxDataBuffer[rxDataStart] == (uint8_t)ACK_1[0] && (uint8_t)RxDataBuffer[rxDataStart+1] == (uint8_t)ACK_1[1]){
+//							HAL_UART_Transmit_IT(&huart2, sendData, 4);
+							checkSum = 0;
+							modeNo = 99;
+							rxDataStart = (rxDataCount + 1) % huart2.RxXferSize;
 						}
 						else{
 							checkSum = checkSum + RxDataBuffer[rxDataCount];
