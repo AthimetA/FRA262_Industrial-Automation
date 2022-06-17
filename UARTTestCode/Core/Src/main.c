@@ -60,7 +60,8 @@ DMA_HandleTypeDef hdma_usart2_rx;
  uint8_t ACK_2[2] = { 70, 0b01101110 };
  uint8_t sendData[6] = {0};
 
- //test data for easier coding
+ //for sending data to base sys
+ uint8_t goalData = 0;
  uint16_t posData = 0; //(max 16000)
  uint16_t veloData = 0; //(max 16000)
  // -------
@@ -409,11 +410,12 @@ void stateManagement(){
 								break;
 							case 0b10011001:
 								modeNo = 9;
+								goalData = 10;
 								if(runningFlag == 1){
 									memcpy(sendData, ACK_1, 2);
 									sendData[2] = 153; // start-mode
 									sendData[3] = 0;
-									sendData[4] = 10; // set current goal
+									sendData[4] = goalData; // set current goal
 									sendData[5] = (~(sendData[2]+sendData[3]+sendData[4]));
 									HAL_UART_Transmit(&huart2, sendData, 6, 200);
 								}
@@ -421,13 +423,10 @@ void stateManagement(){
 									memcpy(sendData, ACK_2, 2);
 									sendData[2] = 153; // start-mode
 									sendData[3] = 0;
-									sendData[4] = 10; // set current goal
+									sendData[4] = goalData; // set current goal
 									sendData[5] = (~(sendData[2]+sendData[3]+sendData[4]));
 									HAL_UART_Transmit(&huart2, sendData, 6, 200);
 								}
-//								for(int i = 0; i < 4; i++){
-//									HAL_UART_Transmit_IT(&huart2, sendData[i], 1);
-//								}
 								break;
 							case 0b10011010:
 								modeNo = 10;
@@ -484,7 +483,6 @@ void stateManagement(){
 							rxDataStart = (rxDataCount + 1) % huart2.RxXferSize;
 						}
 						else if((uint8_t)RxDataBuffer[rxDataStart] == (uint8_t)ACK_1[0] || (uint8_t)RxDataBuffer[rxDataStart] == (uint8_t)ACK_1[1]){
-//							HAL_UART_Transmit_IT(&huart2, sendData, 4);
 							checkSum = 0;
 							modeNo = 99;
 							rxDataStart = (rxDataCount + 1) % huart2.RxXferSize;
