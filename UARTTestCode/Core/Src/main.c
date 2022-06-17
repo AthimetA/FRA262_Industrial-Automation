@@ -417,7 +417,6 @@ void stateManagement(){
 									sendData[3] = 0;
 									sendData[4] = goalData; // set current goal
 									sendData[5] = (~(sendData[2]+sendData[3]+sendData[4]));
-									HAL_UART_Transmit(&huart2, sendData, 6, 200);
 								}
 								else{
 									memcpy(sendData, ACK_2, 2);
@@ -425,8 +424,8 @@ void stateManagement(){
 									sendData[3] = 0;
 									sendData[4] = goalData; // set current goal
 									sendData[5] = (~(sendData[2]+sendData[3]+sendData[4]));
-									HAL_UART_Transmit(&huart2, sendData, 6, 200);
 								}
+								HAL_UART_Transmit_IT(&huart2, sendData, 6);
 								break;
 							case 0b10011010:
 								modeNo = 10;
@@ -437,7 +436,6 @@ void stateManagement(){
 									sendData[3] = ((posData*65535)/16000) & 255; // set low byte posData
 									sendData[4] = ((posData*65535)/16000) >> 8; // set high byte posData
 									sendData[5] = (~(sendData[2]+sendData[3]+sendData[4]));
-									HAL_UART_Transmit(&huart2, sendData, 6, 200);
 								}
 								else{
 									memcpy(sendData, ACK_2, 2);
@@ -445,8 +443,8 @@ void stateManagement(){
 									sendData[3] = ((posData*65535)/16000) & 255; // set low byte posData
 									sendData[4] = ((posData*65535)/16000) >> 8; // set high byte posData
 									sendData[5] = (~(sendData[2]+sendData[3]+sendData[4]));
-									HAL_UART_Transmit(&huart2, sendData, 6, 200);
 								}
+								HAL_UART_Transmit_IT(&huart2, sendData, 6);
 								break;
 							case 0b10011011:
 								modeNo = 11;
@@ -456,15 +454,14 @@ void stateManagement(){
 									sendData[2] = 155;
 									sendData[4] = ((veloData*255)/16000) & 255; // set low byte posData
 									sendData[5] = (~(sendData[2]+sendData[3]+sendData[4]));
-									HAL_UART_Transmit(&huart2, sendData, 6, 200);
 								}
 								else{
 									memcpy(sendData, ACK_2, 2);
 									sendData[2] = 155;
 									sendData[4] = ((veloData*255)/16000) & 255; // set low byte posData
 									sendData[5] = (~(sendData[2]+sendData[3]+sendData[4]));
-									HAL_UART_Transmit(&huart2, sendData, 6, 200);
 								}
+								HAL_UART_Transmit_IT(&huart2, sendData, 6);
 								break;
 							case 0b10011100:
 								modeNo = 12;
