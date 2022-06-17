@@ -20,11 +20,11 @@ typedef struct {
 	// Matrix D
 	float32_t MatD_Data[1];
 	// Matrix Q
-	float32_t MatQ_Data[9];
+	float32_t MatQ_Data[1];
 	// Matrix R
 	float32_t MatR_Data[1];
 	// Matrix G
-	float32_t MatG_Data[9];
+	float32_t MatG_Data[3];
 	// Matrix State
 	float32_t MatState_Data[3];
 	// Matrix State Last
@@ -44,19 +44,35 @@ typedef struct {
 	// Matrix Iden
 	float32_t MatI_Data[9];
 	/* Matrix Buffer */
+	// Matrix At
 	float32_t MatAt_Data[9];
-	float32_t MatGt_Data[9];
+	// Matrix Gt
+	float32_t MatGt_Data[3];
+	// Matrix GQ
+	float32_t MatGQ_Data[3];
+	// Matrix Ct
 	float32_t MatCt_Data[3];
+	// Matrix Sinv
 	float32_t MatSinv_Data[1];
+	// Matrix GQGt
 	float32_t MatGQGt_Data[9];
+	// Matrix CPk
 	float32_t MatCPk_Data[3];
+	// Matrix APK
 	float32_t MatAPk_Data[9];
+	// Matrix APKAt
 	float32_t MatAPkAt_Data[9];
+	// Matrix CXk
 	float32_t MatCXk_Data[1];
+	// Matrix CPkCt
 	float32_t MatCPkCt_Data[1];
+	// Matrix PkCt
 	float32_t MatPkCt_Data[3];
+	// Matrix KYk
 	float32_t MatKYk_Data[3];
+	// Matrix KC
 	float32_t MatKC_Data[9];
+	// Matrix IKC
 	float32_t MatI_KC_Data[9];
 	arm_matrix_instance_f32 MatA;
 	arm_matrix_instance_f32 MatB;
@@ -76,6 +92,7 @@ typedef struct {
 	arm_matrix_instance_f32 MatI;
 	arm_matrix_instance_f32 MatAt;
 	arm_matrix_instance_f32 MatGt;
+	arm_matrix_instance_f32 MatGQ;
 	arm_matrix_instance_f32 MatCt;
 	arm_matrix_instance_f32 MatSinv;
 	arm_matrix_instance_f32 MatGQGt;

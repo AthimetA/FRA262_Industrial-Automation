@@ -30,6 +30,7 @@ typedef struct {
 	float ControllerOut;
 	float ControllerLastOut;
 
+	float KpUse;
 } PIDVelocityController;
 
 void  PIDVelocityController_Init(PIDVelocityController *pidVelocity);

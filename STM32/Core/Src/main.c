@@ -23,11 +23,14 @@
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
 #include <string.h>
+
 #include "PID.h"
 #include "Kalman.h"
 #include "arm_math.h"
 #include "PIDVelocity.h"
 #include "Trajectory.h"
+
+#include "uartRingBufDMA.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -37,18 +40,26 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+// ---------------------------------UART--------------------------------- //
+#define UART huart2
+#define DMA hdma_usart2_rx
+/* Define the Size */
+#define RxBuf_SIZE 20
+#define TxBuf_SIZE 20
+#define MainBuf_SIZE 40
+// ---------------------------------UART--------------------------------- //
 #define Endeff_ADDR 0b01000110
 #define Endeff_TEST 0x45
 /* Controller,Kalman parameters */
 #define dt  0.001f
 #define testDes 90.0f
-#define Kalmanvar  100.0f
-#define PID_KP  0.2f
-#define PID_KI  0.00001f
-#define PID_KD  0.12f
-#define PIDVELO_KP  16.0f
-#define PIDVELO_KI  0.02f
-#define PIDVELO_KD  0.0f
+#define Kalmanvar  1.0f
+#define PID_KP  2.0f
+#define PID_KI  0.02f
+#define PID_KD  0.001f
+#define PIDVELO_KP  8.0f
+#define PIDVELO_KI  0.4f
+#define PIDVELO_KD  1.2f
 #define PID_LIM_MIN_INT -10000.0f
 #define PID_LIM_MAX_INT  10000.0f
 /* PWM MAX parameters */
@@ -73,52 +84,94 @@ TIM_HandleTypeDef htim4;
 TIM_HandleTypeDef htim11;
 
 UART_HandleTypeDef huart2;
+DMA_HandleTypeDef hdma_usart2_rx;
 
 /* USER CODE BEGIN PV */
+// ---------------------------------UART--------------------------------- //
+uint8_t RxBuf[RxBuf_SIZE];
+uint8_t MainBuf[MainBuf_SIZE];
+uint8_t TxBuf[TxBuf_SIZE];
+
+uint16_t oldPos = 0;
+uint16_t newPos = 0;
+uint16_t Head, Tail;
+
+/* Timeout is in milliseconds */
+int32_t TIMEOUT = 0;
+
+uint8_t ACK_1[2] = { 0x58, 0b01110101 };
+uint8_t ACK_2[2] = { 70, 0b01101110 };
+
+// normOperation(MCCon) = MotorOn, EndEff On
+// emergency = MotorOff, EndEff Off
+// MCDisCon = MotorOff, EndEff Off
+enum{MCDisCon ,normOperation, emergency} MainState = normOperation;
+// idle = MotorOn, EndEff On(Do nothing)
+// EndEff = MotorOn(PWM=0), EndEff On(Send Something and Shoot Laser)(LED On)
+enum{init, idle, EndEff} RobotState = normOperation;
+// Data Buffer
+
+ uint8_t sendData[6] = {0};
+
+ //for sending data to base sys
+ uint8_t goalData = 0;
+ uint16_t posData = 0; //(max 16000)
+ uint16_t veloData = 0; //(max 16000)
+ // -------
+
+ uint16_t uartVelo = 0;
+ uint16_t uartPos = 0;
+ uint8_t uartGoal[15];
+ uint8_t goalAmount = 0;
+ uint8_t goalIDX = 0;
+ uint8_t runningFlag = 0;
+ uint8_t homingFlag = 0;
+ uint8_t modeNo = 0;
+
+ uint64_t timeElapsed = 0;
+ // ---------------------------------UART--------------------------------- //
+ // ---------------------------------CTRL---------------------------------
 /* Setup Microsec */
 uint64_t _micro = 0;
 /* Setup EncoderData */
 int EncoderRawData[2] = {0};
 int WrappingStep = 0;
 int PositionRaw = 0;
-float32_t PositionDeg = 0;
+float32_t PositionDeg[2] = {0};
 float32_t VelocityDeg = 0;
-float32_t PositionRad = 0;
 /* Initialise Kalman Filter */
 KalmanFilterVar KalmanVar = {
 		{1.0,dt,0.5*dt*dt,0,1.0,dt,0,0,1.0}, // A
-		{0,0,0}, // B
-		{1.0,0,0}, // C
-		{0}, // D
-		{dt*dt*dt*dt*Kalmanvar/4.0,dt*dt*dt*Kalmanvar/2.0,dt*dt*Kalmanvar/2.0,dt*dt*dt*Kalmanvar/2.0,dt*dt*Kalmanvar,dt*Kalmanvar,dt*dt*Kalmanvar/2.0,dt*Kalmanvar,Kalmanvar}, // Q
-//		{dt*dt*dt*dt*dt*dt*Kalmanvar/36.0,dt*dt*dt*dt*dt*Kalmanvar/12.0,dt*dt*dt*dt*Kalmanvar/6.0,dt*dt*dt*dt*dt*Kalmanvar/12.0,dt*dt*dt*dt*Kalmanvar/4.0,dt*dt*dt*Kalmanvar/2.0,dt*dt*dt*dt*Kalmanvar/6.0,dt*dt*dt*Kalmanvar/2.0,dt*dt*Kalmanvar},
-//		{0.0001}, //R
-		{0.00000000001}, //R
-		{0,0,((dt*dt*dt))/6.0,0,0,((dt*dt))/2.0,0,0,dt}, //G
-		{0,0,0}, // STATE X
-		{0,0,0}, // STATE X-1
+		{0.0,0.0,0.0}, // B
+		{1.0,0.0,0.0}, // C
+		{0.0}, // D
+		{1000.0}, //Q
+		{0.000001}, //R
+		{((dt*dt*dt))/6.0,((dt*dt))/2.0,dt}, //G
+		{0.0,0.0,0.0}, // STATE X
+		{0.0,0.0,0.0}, // STATE X-1
 		{0,0,0,0,0,0,0,0,0}, // STATE P
 		{0,0,0,0,0,0,0,0,0}, // STATE P-1
-//		{1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0},
-		{0}, // Y
-		{0}, // Z
-		{0}, // S
-		{0,0,0}, // K
-		{1.0,0,0,0,1.0,0,0,0,1.0}, // I
-		{0},
-		{0},
-		{0},
-		{0},
-		{0},
-		{0},
-		{0},
-		{0},
-		{0},
-		{0},
-		{0},
-		{0},
-		{0},
-		{0},
+		{0.0}, // Y
+		{0.0}, // Z
+		{0.0}, // S
+		{0.0,0.0,0.0}, // K
+		{1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0}, // I
+		{0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0},	// Matrix At
+		{0.0,0.0,0.0},	// Matrix Gt
+		{0.0,0.0,0.0},	// Matrix GQ
+		{0.0,0.0,0.0},	// Matrix Ct
+		{0.0},	// Matrix Sinv
+		{0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0},	// Matrix GQGt
+		{0.0,0.0,0.0},	// Matrix CPk
+		{0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0},	// Matrix APK
+		{0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0},	// Matrix APKAt
+		{0.0},	// Matrix CXk
+		{0.0},	// Matrix CPkCt
+		{0.0,0.0,0.0},	// Matrix PkCt
+		{0.0,0.0,0.0},	// Matrix KYk
+		{0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0},	// Matrix KC
+		{0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0} 	// Matrix IKC
 };
 /* Initialise PID controller */
 PIDVelocityController PidVelo = {PIDVELO_KP,PIDVELO_KI,PIDVELO_KD,
@@ -127,14 +180,11 @@ PIDVelocityController PidPos = {PID_KP, PID_KI, PID_KD,
 								PID_LIM_MIN_INT,PID_LIM_MAX_INT};
 /* Simulate response using test system */
 float setpoint = 0.0f;
-float setpointCheck = 0.0f;
 float PWMCHECKER = 0.0f;
 float PositionErrorControl = 0.3f;
-int32_t PWMC = 2500;
 /* Trajectory */
 TrajectoryG traject = {AMAX,JMAX};
 uint8_t flagT = 0;
-uint8_t flagC = 0;
 static uint64_t StartTime =0;
 static uint64_t CurrentTime =0;
 static uint64_t CheckLoopStartTime =0;
@@ -143,11 +193,8 @@ static uint64_t CheckLoopDiffTime =0;
 static uint8_t btncheck = 0;
 uint8_t I2CEndEffectorReadFlag = 0;
 uint8_t I2CEndEffectorWriteFlag = 0;
-static uint16_t len =1;
-static uint8_t dumdata[2] ={0};
-
-static uint64_t PWMupdate = 0;
-static uint16_t checkbtn = 0;
+//static uint16_t len =1;
+//static uint8_t dumdata[2] ={0};
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -158,8 +205,9 @@ static void MX_TIM1_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_TIM11_Init(void);
-static void MX_I2C1_Init(void);
+static void MX_DMA_Init(void);
 static void MX_TIM4_Init(void);
+static void MX_I2C1_Init(void);
 /* USER CODE BEGIN PFP */
 uint64_t Micros();
 uint32_t PWMAbs(int32_t PWM);
@@ -169,6 +217,8 @@ float AbsVal(float number);
 void ControllLoopAndErrorHandler();
 void I2CWriteFcn(uint8_t *Wdata, uint16_t len, uint16_t MemAd);
 void I2CReadFcn(uint8_t *Rdata, uint16_t len, uint16_t MemAd);
+
+void stateManagement(uint8_t *Rxbuffer , uint16_t rxDataCurPos , uint16_t rxDataLastPos);
 
 /* USER CODE END PFP */
 
@@ -205,14 +255,19 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_USART2_UART_Init();
   MX_TIM1_Init();
   MX_TIM2_Init();
   MX_TIM3_Init();
   MX_TIM11_Init();
-  MX_I2C1_Init();
   MX_TIM4_Init();
+  MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
+  //----UART-----//
+  Ringbuf_Init();
+  //  HAL_UART_Receive_DMA(&huart2, RxDataBuffer, 32);
+  //----UART-----//
   KalmanMatrixInit(&KalmanVar);
   //////////////////////////
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
@@ -226,10 +281,9 @@ int main(void)
   PIDVelocityController_Init(&PidVelo);
   PIDVelocityController_Init(&PidPos);
 
-  CoefficientAndTimeCalculation(&traject,-150.0,-90.0);
+  CoefficientAndTimeCalculation(&traject,0.0,testDes);
 
   btncheck = 0;
-  PWMupdate = 0;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -574,10 +628,10 @@ static void MX_USART2_UART_Init(void)
 
   /* USER CODE END USART2_Init 1 */
   huart2.Instance = USART2;
-  huart2.Init.BaudRate = 115200;
-  huart2.Init.WordLength = UART_WORDLENGTH_8B;
+  huart2.Init.BaudRate = 512000;
+  huart2.Init.WordLength = UART_WORDLENGTH_9B;
   huart2.Init.StopBits = UART_STOPBITS_1;
-  huart2.Init.Parity = UART_PARITY_NONE;
+  huart2.Init.Parity = UART_PARITY_EVEN;
   huart2.Init.Mode = UART_MODE_TX_RX;
   huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
   huart2.Init.OverSampling = UART_OVERSAMPLING_16;
@@ -588,6 +642,22 @@ static void MX_USART2_UART_Init(void)
   /* USER CODE BEGIN USART2_Init 2 */
 
   /* USER CODE END USART2_Init 2 */
+
+}
+
+/**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA1_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA1_Stream5_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream5_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream5_IRQn);
 
 }
 
@@ -666,9 +736,17 @@ void EncoderRead()
 	}
 	PositionRaw = EncoderRawData[0] + WrappingStep;
 //	PositionRad = (PositionRaw/12000.0)*2.0*3.14;
-	PositionDeg = (PositionRaw/12000.0)*360.0;
-	VelocityDeg = (((EncoderRawData[0] - EncoderRawData[1])/dt)/12000.0)*360.0;
+	PositionDeg[0] = (PositionRaw/12000.0)*360.0;
+	if(PositionDeg[0] != PositionDeg[1])
+	{
+		VelocityDeg = ((PositionDeg[0] - PositionDeg[1])/dt);
+	}
+	else
+	{
+		VelocityDeg = VelocityDeg;
+	}
 	EncoderRawData[1] = EncoderRawData[0];
+	PositionDeg[1] = PositionDeg[0];
 }
 
 uint32_t PWMAbs(int32_t PWM)
@@ -700,37 +778,35 @@ void Drivemotor(int32_t PWM){
 
 void ControllLoopAndErrorHandler()
 {
-	CurrentTime = Micros();
-	Drivemotor(2000.0);
-	TrajectoryEvaluation(&traject,StartTime,CurrentTime);
 //	setpoint = 180.0;
-//	PIDVelocityController_Update(&PidPos,setpoint, PositionDeg);
-//	PIDVelocityController_Update(&PidVelo, PidPos.ControllerOut , KalmanVar.MatState_Data[1]);
-////	PWMCHECKER = PidVelo.ControllerOut;
-//	Drivemotor(PidVelo.ControllerOut);
-//	  if (flagT == 0)
-//	  {
-//	    StartTime = Micros();
-//	    flagT =1;
-//	  }
-//	  if(AbsVal(testDes - PositionDeg) < 0.5 && AbsVal(KalmanVar.MatState_Data[1]) < 1.0)
-//	  {
-//	    PWMCHECKER = 0.0;
-//	    Drivemotor(PWMCHECKER);
-//	  }
-//	  else
-//	  {
-//		PIDVelocityController_Update(&PidPos,traject.QX, PositionDeg);
-//		PIDVelocityController_Update(&PidVelo, traject.QV + PidPos.ControllerOut , KalmanVar.MatState_Data[1]);
-//		PWMCHECKER = PidVelo.ControllerOut;
-//		Drivemotor(PWMCHECKER);
-//	  }
+//	PIDVelocityController_Update(&PidVelo, setpoint, KalmanVar.MatState_Data[1]);
+//	PWMCHECKER = PidVelo.ControllerOut;
+//	Drivemotor(2500.0);
+	  if (flagT == 0)
+	  {
+	    StartTime = Micros();
+	    flagT =1;
+	  }
+		CurrentTime = Micros();
+		TrajectoryEvaluation(&traject,StartTime,CurrentTime);
+	  if(AbsVal(testDes - PositionDeg[0]) < 0.5 && AbsVal(KalmanVar.MatState_Data[1]) < 1.0)
+	  {
+	    PWMCHECKER = 0.0;
+	    Drivemotor(PWMCHECKER);
+	  }
+	  else
+	  {
+		PIDVelocityController_Update(&PidPos,traject.QX, PositionDeg[0]);
+		PIDVelocityController_Update(&PidVelo, traject.QV + PidPos.ControllerOut  , KalmanVar.MatState_Data[1]);
+		PWMCHECKER = PidVelo.ControllerOut;
+		Drivemotor(PWMCHECKER);
+	  }
 }
 
 void I2CWriteFcn(uint8_t *Wdata, uint16_t len, uint16_t MemAd) {
 	if (I2CEndEffectorWriteFlag && hi2c1.State == HAL_I2C_STATE_READY) {
-		static uint8_t data;
-		data = Wdata[0];
+//		static uint8_t data;
+//		data = Wdata[0];
 		HAL_I2C_Master_Transmit_IT(&hi2c1, MemAd, Wdata, len);
 //		HAL_I2C_Mem_Write_IT(&hi2c1, DevAddress, MemAddress, MemAddSize, pData, Size);
 		I2CEndEffectorWriteFlag = 0;
@@ -777,26 +853,251 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 		_micro += 65535;
 	}
 	else if (htim == &htim3) {
+		CheckLoopStartTime = Micros();
+		EncoderRead();
+		KalmanFilterFunction(&KalmanVar,PositionDeg[0]);
+//		KalmanFilterFunction(&KalmanVar,VelocityDeg);
 		ControllLoopAndErrorHandler();
 		CheckLoopStopTime = Micros();
-	}
-	else if (htim == &htim4) {
-		CheckLoopStartTime = Micros();
-		//
-		EncoderRead();
-		KalmanFilterFunction(&KalmanVar,PositionDeg);
-//		setpoint = 180.0;
-		PIDVelocityController_Update(&PidPos,setpoint, PositionDeg);
-		PIDVelocityController_Update(&PidVelo, PidPos.ControllerOut , KalmanVar.MatState_Data[1]);
-	//	PWMCHECKER = PidVelo.ControllerOut;
-		//
 		CheckLoopStopTime = Micros();
 		CheckLoopDiffTime = CheckLoopStopTime - CheckLoopStartTime;
+	}
+	else if (htim == &htim4) {
+
 		}
 }
 
 uint64_t Micros(){
 	return _micro + TIM11->CNT;
+}
+
+/* Initialize the Ring Buffer */
+void Ringbuf_Init (void)
+{
+	memset(RxBuf, '\0', RxBuf_SIZE);
+	memset(MainBuf, '\0', MainBuf_SIZE);
+
+	Head = Tail = 0;
+	oldPos = 0;
+	newPos = 0;
+
+  HAL_UARTEx_ReceiveToIdle_DMA(&UART, RxBuf, RxBuf_SIZE);
+  __HAL_DMA_DISABLE_IT(&DMA, DMA_IT_HT);
+}
+
+/* Resets the Ring buffer */
+void Ringbuf_Reset (void)
+{
+	memset(MainBuf,'\0', MainBuf_SIZE);
+	memset(RxBuf, '\0', RxBuf_SIZE);
+	Tail = 0;
+	Head = 0;
+	oldPos = 0;
+	newPos = 0;
+}
+
+uint8_t checkSum (uint8_t *buffertoCheckSum , int bufferSize)
+{
+	uint8_t sum = 0;
+	for (int index = 0; index < bufferSize-1; ++index)
+	{
+		sum = sum + buffertoCheckSum[index];
+	}
+	if((uint8_t)(buffertoCheckSum[bufferSize-1])==(uint8_t)(~sum))
+	{
+		return 1;
+	}
+	else
+	{
+		return 0;
+	}
+}
+
+void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
+{
+		oldPos = newPos;  // Update the last position before copying new data
+
+		/* If the data in large and it is about to exceed the buffer size, we have to route it to the start of the buffer
+		 * This is to maintain the circular buffer
+		 * The old data in the main buffer will be overlapped
+		 */
+		if (oldPos+Size > MainBuf_SIZE)  // If the current position + new data size is greater than the main buffer
+		{
+			uint16_t datatocopy = MainBuf_SIZE-oldPos;  // find out how much space is left in the main buffer
+			memcpy ((uint8_t *)MainBuf+oldPos, (uint8_t *)RxBuf, datatocopy);  // copy data in that remaining space
+
+			oldPos = 0;  // point to the start of the buffer
+			memcpy ((uint8_t *)MainBuf, (uint8_t *)RxBuf+datatocopy, (Size-datatocopy));  // copy the remaining data
+			newPos = (Size-datatocopy);  // update the position
+		}
+
+		/* if the current position + new data size is less than the main buffer
+		 * we will simply copy the data into the buffer and update the position
+		 */
+		else
+		{
+			memcpy ((uint8_t *)MainBuf+oldPos, (uint8_t *)RxBuf, Size);
+			newPos = Size+oldPos;
+		}
+
+		/* Update the position of the Head
+		 * If the current position + new size is less then the buffer size, Head will update normally
+		 * Or else the head will be at the new position from the beginning
+		 */
+		if (Head+Size < MainBuf_SIZE) Head = Head+Size;
+		else Head = Head+Size - MainBuf_SIZE;
+
+		/* start the DMA again */
+		HAL_UARTEx_ReceiveToIdle_DMA(&UART, (uint8_t *) RxBuf, RxBuf_SIZE);
+		__HAL_DMA_DISABLE_IT(&DMA, DMA_IT_HT);
+
+
+	/****************** PROCESS (Little) THE DATA HERE *********************/
+		if(checkSum(RxBuf, newPos-oldPos))
+		{
+		stateManagement(RxBuf,newPos,oldPos);
+		}
+}
+
+void stateManagement(uint8_t *Rxbuffer , uint16_t rxDataCurPos , uint16_t rxDataLastPos)
+{
+	uint16_t rxDatalen = rxDataCurPos - rxDataLastPos;
+	switch (MainState) {
+		case emergency:
+			//Do Some thing
+			// Return to norm by IT GPIO
+			break;
+		case MCDisCon:
+			if(Rxbuffer[0] == 0b10010010)
+			{
+				// Connect MC and Back to normal
+				MainState = normOperation;
+				HAL_UART_Transmit_IT(&UART, ACK_1, 2);
+			}
+			break;
+		case normOperation:
+			switch (Rxbuffer[0])
+			{
+				// Mode 1 Test Command
+				case 0b10010001:
+					// Do nothing
+					HAL_UART_Transmit_IT(&UART, ACK_1, 2);
+				break;
+				// Mode 2 Connect MC
+				case 0b10010010:
+					// Start and Connect MC
+					MainState = normOperation;
+					HAL_UART_Transmit_IT(&UART, ACK_1, 2);
+				break;
+				// Mode 3 Disconnect MC
+				case 0b10010011:
+					// Disconnect MC
+					MainState = MCDisCon;
+					HAL_UART_Transmit_IT(&UART, ACK_1, 2);
+				break;
+				// Mode 4 Set Angular Velocity
+				case 0b10010100:
+					uartVelo = Rxbuffer[1]+Rxbuffer[2];
+					HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
+					break;
+				// Mode 5 Set Angular Position
+				case 0b10010101:
+					uartPos = Rxbuffer[1]+Rxbuffer[2];
+					HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
+					break;
+//				// Mode 6
+//				case 0b10010110:
+//					memset(uartGoal, 0, 15);
+//					goalAmount = 1;
+//					uartGoal[0] = RxDataBuffer[rxDataStart + 2];
+//					HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
+//					break;
+//				// Mode 7
+//				case 0b10010111:
+//					memset(uartGoal, 0, 15);
+//					goalAmount = RxDataBuffer[rxDataStart + 1];
+//					for(int i = 0; i < ((goalAmount+1)/2); i++){
+//						uartGoal[0+(i*2)] = RxDataBuffer[rxDataStart+(2+i)] & 15; // low 8 bit (last 4 bit)
+//						uartGoal[1+(i*2)] = RxDataBuffer[rxDataStart+(2+i)] >> 4; // high 8 bit (first 4 bit)
+//					}
+//					HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
+//					break;
+				// Mode 8
+				case 0b10011000:
+					runningFlag = 1;
+					HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
+					break;
+				// Mode 9
+				case 0b10011001:
+					goalData = 10;
+					if(runningFlag == 1){
+						memcpy(sendData, ACK_1, 2);
+						sendData[2] = 153; // start-mode
+						sendData[3] = 0;
+						sendData[4] = goalData; // set current goal
+						sendData[5] = (uint8_t)(~(sendData[2]+sendData[3]+sendData[4]));
+					}
+					else{
+						memcpy(sendData, ACK_2, 2);
+						sendData[2] = 153; // start-mode
+						sendData[3] = 0;
+						sendData[4] = goalData; // set current goal
+						sendData[5] = (uint8_t)(~(sendData[2]+sendData[3]+sendData[4]));
+					}
+					HAL_UART_Transmit_IT(&huart2, sendData, 6);
+					break;
+				// Mode 10
+				case 0b10011010:
+					modeNo = 10;
+					posData = 10271; // data from zhong
+					if(runningFlag == 1){
+						memcpy(sendData, ACK_1, 2);
+						sendData[2] = 154; // start-mode
+						sendData[3] = ((posData*65535)/16000) & 255; // set low byte posData
+						sendData[4] = ((posData*65535)/16000) >> 8; // set high byte posData
+						sendData[5] = (uint8_t)(~(sendData[2]+sendData[3]+sendData[4]));
+					}
+					else{
+						memcpy(sendData, ACK_2, 2);
+						sendData[2] = 154; // start-mode
+						sendData[3] = ((posData*65535)/16000) & 255; // set low byte posData
+						sendData[4] = ((posData*65535)/16000) >> 8; // set high byte posData
+						sendData[5] = (uint8_t)(~(sendData[2]+sendData[3]+sendData[4]));
+					}
+					HAL_UART_Transmit_IT(&huart2, sendData, 6);
+					break;
+				// Mode 11
+				case 0b10011011:
+					veloData = 2496;
+					if(runningFlag == 1){
+						memcpy(sendData, ACK_1, 2);
+						sendData[2] = 155;
+						sendData[4] = ((veloData*255)/16000) & 255; // set low byte posData
+						sendData[5] = (~(sendData[2]+sendData[3]+sendData[4]));
+					}
+					else{
+						memcpy(sendData, ACK_2, 2);
+						sendData[2] = 155;
+						sendData[4] = ((veloData*255)/16000) & 255; // set low byte posData
+						sendData[5] = (~(sendData[2]+sendData[3]+sendData[4]));
+					}
+					HAL_UART_Transmit_IT(&huart2, sendData, 6);
+					break;
+				// Mode 12
+				case 0b10011100:
+					HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
+					break;
+				// Mode 13
+				case 0b10011101:
+					HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
+					break;
+				// Mode 14
+				case 0b10011110:
+					homingFlag = 1;
+					HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
+					break;
+				}
+	}
 }
 /* USER CODE END 4 */
 

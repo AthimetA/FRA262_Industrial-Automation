@@ -6,6 +6,8 @@
  */
 
 #include "PIDVelocity.h"
+#include "Trajectory.h"
+
 void  PIDVelocityController_Init(PIDVelocityController *pidVelocity){
 
 	pidVelocity->Last1Error = 0.0f;
@@ -22,6 +24,17 @@ void  PIDVelocityController_Init(PIDVelocityController *pidVelocity){
 float PIDVelocityController_Update(PIDVelocityController *pidVelocity, float setpoint, float measurement){
 
     float error = setpoint - measurement;
+    float errorLow = setpoint*0.1;
+    float errorHigh = setpoint*0.9;
+
+//    if(AbsVal(error) < errorLow || AbsVal(error) > errorHigh)
+//    {
+//    	pidVelocity->KpUse = pidVelocity->Kp*10.0;
+//    }
+//    else
+//    {
+//    	pidVelocity->KpUse = pidVelocity->Kp;
+//    }
 
 	// Compute error of each term
 
