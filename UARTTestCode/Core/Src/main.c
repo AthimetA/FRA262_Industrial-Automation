@@ -353,6 +353,7 @@ void stateManagement(){
 //	static uint8_t checkSum = 0;
 	switch(beegState){
 		case normOperation:
+			if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_3) == GPIO_PIN_SET){
 			switch(cmdState){
 				case INIT:
 					// reset pwm
@@ -495,8 +496,15 @@ void stateManagement(){
 					}
 					break;
 				  }
+			}
+			else{
+				beegState = emergency;
+			}
 	          	  break;
 	    case emergency:
+	    	if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_3) == 0){
+	    		beegState = normOperation;
+	    	}
 	    	break;
 	    }
 }
