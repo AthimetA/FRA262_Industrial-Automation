@@ -85,6 +85,7 @@ TIM_HandleTypeDef htim11;
 
 UART_HandleTypeDef huart2;
 DMA_HandleTypeDef hdma_usart2_rx;
+DMA_HandleTypeDef hdma_usart2_tx;
 
 /* USER CODE BEGIN PV */
 // ---------------------------------UART--------------------------------- //
@@ -659,6 +660,9 @@ static void MX_DMA_Init(void)
   /* DMA1_Stream5_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Stream5_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Stream5_IRQn);
+  /* DMA1_Stream6_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream6_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream6_IRQn);
 
 }
 
@@ -984,7 +988,7 @@ void stateManagement(uint8_t *Rxbuffer , uint16_t rxDataCurPos , uint16_t rxData
 				// Connect MC and Back to normal
 				modeNo = 2;
 				MainState = normOperation;
-				HAL_UART_Transmit_IT(&UART, ACK_1, 2);
+				HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
 			}
 			break;
 		case normOperation:
@@ -996,33 +1000,33 @@ void stateManagement(uint8_t *Rxbuffer , uint16_t rxDataCurPos , uint16_t rxData
 				case 0b10010001:
 					// Do nothing
 					modeNo = 1;
-					HAL_UART_Transmit_IT(&UART, ACK_1, 2);
+					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
 					break;
 				// Mode 2 Connect MC
 				case 0b10010010:
 					// Start and Connect MC
 					modeNo = 2;
 					MainState = normOperation;
-					HAL_UART_Transmit_IT(&UART, ACK_1, 2);
+					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
 					break;
 				// Mode 3 Disconnect MC
 				case 0b10010011:
 					// Disconnect MC
 					modeNo = 3;
 					MainState = MCDisCon;
-					HAL_UART_Transmit_IT(&UART, ACK_1, 2);
+					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
 					break;
 				// Mode 4 Set Angular Velocity
 				case 0b10010100:
 					modeNo = 4;
 					uartVelo = Rxbuffer[2];
-					HAL_UART_Transmit_IT(&UART, ACK_1, 2);
+					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
 					break;
 				// Mode 5 Set Angular Position
 				case 0b10010101:
 					modeNo = 5;
 					uartPos = (Rxbuffer[1] << 8) | Rxbuffer[2];
-					HAL_UART_Transmit_IT(&UART, ACK_1, 2);
+					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
 					break;
 				// Mode 6
 				case 0b10010110:
@@ -1030,7 +1034,7 @@ void stateManagement(uint8_t *Rxbuffer , uint16_t rxDataCurPos , uint16_t rxData
 					memset(uartGoal, 0, 15);
 					goalAmount = 1;
 					uartGoal[0] = Rxbuffer[2];
-					HAL_UART_Transmit_IT(&UART, ACK_1, 2);
+					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
 					break;
 				// Mode 7
 				case 0b10010111:
@@ -1041,13 +1045,13 @@ void stateManagement(uint8_t *Rxbuffer , uint16_t rxDataCurPos , uint16_t rxData
 						uartGoal[0+(i*2)] = Rxbuffer[(2+i)] & 15; // low 8 bit (last 4 bit)
 						uartGoal[1+(i*2)] = Rxbuffer[(2+i)] >> 4; // high 8 bit (first 4 bit)
 					}
-					HAL_UART_Transmit_IT(&UART, ACK_1, 2);
+					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
 					break;
 				// Mode 8
 				case 0b10011000:
 					modeNo = 8;
 					runningFlag = 1;
-					HAL_UART_Transmit_IT(&UART, ACK_1, 2);
+					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
 					break;
 				// Mode 9
 				case 0b10011001:
@@ -1067,7 +1071,7 @@ void stateManagement(uint8_t *Rxbuffer , uint16_t rxDataCurPos , uint16_t rxData
 						sendData[4] = goalData; // set current goal
 						sendData[5] = (uint8_t)(~(sendData[2]+sendData[3]+sendData[4]));
 					}
-					HAL_UART_Transmit_IT(&UART, sendData, 6);
+					HAL_UART_Transmit_DMA(&UART, sendData, 6);
 					break;
 				// Mode 10
 				case 0b10011010:
@@ -1087,7 +1091,7 @@ void stateManagement(uint8_t *Rxbuffer , uint16_t rxDataCurPos , uint16_t rxData
 						sendData[4] = ((posData*65535)/16000) >> 8; // set high byte posData
 						sendData[5] = (uint8_t)(~(sendData[2]+sendData[3]+sendData[4]));
 					}
-					HAL_UART_Transmit_IT(&UART, sendData, 6);
+					HAL_UART_Transmit_DMA(&UART, sendData, 6);
 					break;
 				// Mode 11
 				case 0b10011011:
@@ -1105,25 +1109,25 @@ void stateManagement(uint8_t *Rxbuffer , uint16_t rxDataCurPos , uint16_t rxData
 						sendData[4] = ((veloData*255)/16000) & 255; // set low byte posData
 						sendData[5] = (~(sendData[2]+sendData[3]+sendData[4]));
 					}
-					HAL_UART_Transmit_IT(&UART, sendData, 6);
+					HAL_UART_Transmit_DMA(&UART, sendData, 6);
 					break;
 				// Mode 12
 				case 0b10011100:
 					modeNo = 12;
 					endEffFlag = 1;
-					HAL_UART_Transmit_IT(&UART, ACK_1, 2);
+					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
 					break;
 				// Mode 13
 				case 0b10011101:
 					modeNo = 13;
 					endEffFlag = 0;
-					HAL_UART_Transmit_IT(&UART, ACK_1, 2);
+					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
 					break;
 				// Mode 14
 				case 0b10011110:
 					modeNo = 14;
 					homingFlag = 1;
-					HAL_UART_Transmit_IT(&UART, ACK_1, 2);
+					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
 					break;
 				}
 	}
