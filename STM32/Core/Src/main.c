@@ -202,13 +202,13 @@ uint8_t I2CEndEffectorWriteFlag = 0;
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
+static void MX_DMA_Init(void);
+static void MX_I2C1_Init(void);
 static void MX_TIM1_Init(void);
+static void MX_TIM11_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
-static void MX_TIM11_Init(void);
-static void MX_DMA_Init(void);
 static void MX_TIM4_Init(void);
-static void MX_I2C1_Init(void);
 /* USER CODE BEGIN PFP */
 uint64_t Micros();
 uint32_t PWMAbs(int32_t PWM);
@@ -256,14 +256,14 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_USART2_UART_Init();
+  MX_I2C1_Init();
   MX_TIM1_Init();
+  MX_TIM11_Init();
   MX_TIM2_Init();
   MX_TIM3_Init();
-  MX_TIM11_Init();
-  MX_DMA_Init();
   MX_TIM4_Init();
-  MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
   //----UART-----//
   Ringbuf_Init();
@@ -914,6 +914,15 @@ uint8_t checkSum (uint8_t *buffertoCheckSum , int bufferSize)
 	}
 }
 
+uint8_t checkAck (uint8_t *buffertoCheckAck , uint16_t Size)
+{
+	for (int i=0; i < Size; i++)
+	{
+		if ((RxBuf[i] == 'X') && (RxBuf[i+1] == 'u')) return 1;
+		else return 0;
+	}
+}
+
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 {
 		oldPos = newPos;  // Update the last position before copying new data
@@ -954,7 +963,7 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 
 
 	/****************** PROCESS (Little) THE DATA HERE *********************/
-		if(checkSum(RxBuf, newPos-oldPos))
+		if(checkSum(RxBuf, newPos-oldPos) || checkAck(RxBuf, Size))
 		{
 		stateManagement(RxBuf,newPos,oldPos);
 		}
@@ -963,6 +972,7 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 void stateManagement(uint8_t *Rxbuffer , uint16_t rxDataCurPos , uint16_t rxDataLastPos)
 {
 	uint16_t rxDatalen = rxDataCurPos - rxDataLastPos;
+	static uint8_t stateSwitch = 0;
 	switch (MainState) {
 		case emergency:
 			//Do Some thing
@@ -972,64 +982,76 @@ void stateManagement(uint8_t *Rxbuffer , uint16_t rxDataCurPos , uint16_t rxData
 			if(Rxbuffer[0] == 0b10010010)
 			{
 				// Connect MC and Back to normal
+				modeNo = 2;
 				MainState = normOperation;
 				HAL_UART_Transmit_IT(&UART, ACK_1, 2);
 			}
 			break;
 		case normOperation:
-			switch (Rxbuffer[0])
+			if((Rxbuffer[0] >> 4) == 0b1001) stateSwitch = Rxbuffer[0];
+			else stateSwitch = Rxbuffer[2];
+			switch (stateSwitch)
 			{
 				// Mode 1 Test Command
 				case 0b10010001:
 					// Do nothing
+					modeNo = 1;
 					HAL_UART_Transmit_IT(&UART, ACK_1, 2);
 					break;
 				// Mode 2 Connect MC
 				case 0b10010010:
 					// Start and Connect MC
+					modeNo = 2;
 					MainState = normOperation;
 					HAL_UART_Transmit_IT(&UART, ACK_1, 2);
 					break;
 				// Mode 3 Disconnect MC
 				case 0b10010011:
 					// Disconnect MC
+					modeNo = 3;
 					MainState = MCDisCon;
 					HAL_UART_Transmit_IT(&UART, ACK_1, 2);
 					break;
 				// Mode 4 Set Angular Velocity
 				case 0b10010100:
+					modeNo = 4;
 					uartVelo = Rxbuffer[2];
 					HAL_UART_Transmit_IT(&UART, ACK_1, 2);
 					break;
 				// Mode 5 Set Angular Position
 				case 0b10010101:
+					modeNo = 5;
 					uartPos = (Rxbuffer[1] << 8) | Rxbuffer[2];
 					HAL_UART_Transmit_IT(&UART, ACK_1, 2);
 					break;
-//				// Mode 6
-//				case 0b10010110:
-//					memset(uartGoal, 0, 15);
-//					goalAmount = 1;
-//					uartGoal[0] = RxDataBuffer[rxDataStart + 2];
-//					HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
-//					break;
-//				// Mode 7
-//				case 0b10010111:
-//					memset(uartGoal, 0, 15);
-//					goalAmount = RxDataBuffer[rxDataStart + 1];
-//					for(int i = 0; i < ((goalAmount+1)/2); i++){
-//						uartGoal[0+(i*2)] = RxDataBuffer[rxDataStart+(2+i)] & 15; // low 8 bit (last 4 bit)
-//						uartGoal[1+(i*2)] = RxDataBuffer[rxDataStart+(2+i)] >> 4; // high 8 bit (first 4 bit)
-//					}
-//					HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
-//					break;
+				// Mode 6
+				case 0b10010110:
+					modeNo = 6;
+					memset(uartGoal, 0, 15);
+					goalAmount = 1;
+					uartGoal[0] = Rxbuffer[2];
+					HAL_UART_Transmit_IT(&UART, ACK_1, 2);
+					break;
+				// Mode 7
+				case 0b10010111:
+					modeNo = 7;
+					memset(uartGoal, 0, 15);
+					goalAmount = Rxbuffer[1];
+					for(int i = 0; i < ((goalAmount+1)/2); i++){
+						uartGoal[0+(i*2)] = Rxbuffer[(2+i)] & 15; // low 8 bit (last 4 bit)
+						uartGoal[1+(i*2)] = Rxbuffer[(2+i)] >> 4; // high 8 bit (first 4 bit)
+					}
+					HAL_UART_Transmit_IT(&UART, ACK_1, 2);
+					break;
 				// Mode 8
 				case 0b10011000:
+					modeNo = 8;
 					runningFlag = 1;
-					HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
+					HAL_UART_Transmit_IT(&UART, ACK_1, 2);
 					break;
 				// Mode 9
 				case 0b10011001:
+					modeNo = 9;
 					goalData = 10;
 					if(runningFlag == 1){
 						memcpy(sendData, ACK_1, 2);
@@ -1045,7 +1067,7 @@ void stateManagement(uint8_t *Rxbuffer , uint16_t rxDataCurPos , uint16_t rxData
 						sendData[4] = goalData; // set current goal
 						sendData[5] = (uint8_t)(~(sendData[2]+sendData[3]+sendData[4]));
 					}
-					HAL_UART_Transmit_IT(&huart2, sendData, 6);
+					HAL_UART_Transmit_IT(&UART, sendData, 6);
 					break;
 				// Mode 10
 				case 0b10011010:
@@ -1065,10 +1087,11 @@ void stateManagement(uint8_t *Rxbuffer , uint16_t rxDataCurPos , uint16_t rxData
 						sendData[4] = ((posData*65535)/16000) >> 8; // set high byte posData
 						sendData[5] = (uint8_t)(~(sendData[2]+sendData[3]+sendData[4]));
 					}
-					HAL_UART_Transmit_IT(&huart2, sendData, 6);
+					HAL_UART_Transmit_IT(&UART, sendData, 6);
 					break;
 				// Mode 11
 				case 0b10011011:
+					modeNo = 11;
 					veloData = 2496;
 					if(runningFlag == 1){
 						memcpy(sendData, ACK_1, 2);
@@ -1082,22 +1105,25 @@ void stateManagement(uint8_t *Rxbuffer , uint16_t rxDataCurPos , uint16_t rxData
 						sendData[4] = ((veloData*255)/16000) & 255; // set low byte posData
 						sendData[5] = (~(sendData[2]+sendData[3]+sendData[4]));
 					}
-					HAL_UART_Transmit_IT(&huart2, sendData, 6);
+					HAL_UART_Transmit_IT(&UART, sendData, 6);
 					break;
 				// Mode 12
 				case 0b10011100:
+					modeNo = 12;
 					endEffFlag = 1;
-					HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
+					HAL_UART_Transmit_IT(&UART, ACK_1, 2);
 					break;
 				// Mode 13
 				case 0b10011101:
+					modeNo = 13;
 					endEffFlag = 0;
-					HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
+					HAL_UART_Transmit_IT(&UART, ACK_1, 2);
 					break;
 				// Mode 14
 				case 0b10011110:
+					modeNo = 14;
 					homingFlag = 1;
-					HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
+					HAL_UART_Transmit_IT(&UART, ACK_1, 2);
 					break;
 				}
 	}
