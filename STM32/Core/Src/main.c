@@ -126,6 +126,7 @@ enum{init, idle, EndEff} RobotState = normOperation;
  uint8_t goalIDX = 0;
  uint8_t runningFlag = 0;
  uint8_t homingFlag = 0;
+ uint8_t endEffFlag = 0;
  uint8_t modeNo = 0;
 
  uint64_t timeElapsed = 0;
@@ -255,12 +256,12 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_DMA_Init();
   MX_USART2_UART_Init();
   MX_TIM1_Init();
   MX_TIM2_Init();
   MX_TIM3_Init();
   MX_TIM11_Init();
+  MX_DMA_Init();
   MX_TIM4_Init();
   MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
@@ -997,12 +998,12 @@ void stateManagement(uint8_t *Rxbuffer , uint16_t rxDataCurPos , uint16_t rxData
 				break;
 				// Mode 4 Set Angular Velocity
 				case 0b10010100:
-					uartVelo = Rxbuffer[1]+Rxbuffer[2];
+					uartVelo = Rxbuffer[2];
 					HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
 					break;
 				// Mode 5 Set Angular Position
 				case 0b10010101:
-					uartPos = Rxbuffer[1]+Rxbuffer[2];
+					uartPos = (Rxbuffer[1] << 8) | Rxbuffer[2];
 					HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
 					break;
 //				// Mode 6
@@ -1085,10 +1086,12 @@ void stateManagement(uint8_t *Rxbuffer , uint16_t rxDataCurPos , uint16_t rxData
 					break;
 				// Mode 12
 				case 0b10011100:
+					endEffFlag = 1;
 					HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
 					break;
 				// Mode 13
 				case 0b10011101:
+					endEffFlag = 0;
 					HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
 					break;
 				// Mode 14
