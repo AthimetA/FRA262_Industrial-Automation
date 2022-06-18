@@ -983,28 +983,28 @@ void stateManagement(uint8_t *Rxbuffer , uint16_t rxDataCurPos , uint16_t rxData
 				case 0b10010001:
 					// Do nothing
 					HAL_UART_Transmit_IT(&UART, ACK_1, 2);
-				break;
+					break;
 				// Mode 2 Connect MC
 				case 0b10010010:
 					// Start and Connect MC
 					MainState = normOperation;
 					HAL_UART_Transmit_IT(&UART, ACK_1, 2);
-				break;
+					break;
 				// Mode 3 Disconnect MC
 				case 0b10010011:
 					// Disconnect MC
 					MainState = MCDisCon;
 					HAL_UART_Transmit_IT(&UART, ACK_1, 2);
-				break;
+					break;
 				// Mode 4 Set Angular Velocity
 				case 0b10010100:
 					uartVelo = Rxbuffer[2];
-					HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
+					HAL_UART_Transmit_IT(&UART, ACK_1, 2);
 					break;
 				// Mode 5 Set Angular Position
 				case 0b10010101:
 					uartPos = (Rxbuffer[1] << 8) | Rxbuffer[2];
-					HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
+					HAL_UART_Transmit_IT(&UART, ACK_1, 2);
 					break;
 //				// Mode 6
 //				case 0b10010110:
