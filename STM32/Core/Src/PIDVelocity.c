@@ -24,8 +24,23 @@ void  PIDVelocityController_Init(PIDVelocityController *pidVelocity){
 float PIDVelocityController_Update(PIDVelocityController *pidVelocity, float setpoint, float measurement){
 
     float error = setpoint - measurement;
-    float errorLow = setpoint*0.1;
-    float errorHigh = setpoint*0.9;
+    float errorDZ = error;
+//    float deadzone = 11.0;
+
+//    if(error > deadzone)
+//    {
+//    	errorDZ = error - deadzone;
+//    }
+//    else if( (-1.0*deadzone) < error && error < deadzone)
+//    {
+//    	errorDZ = 0;
+//    }
+//    else
+//    {
+//    	errorDZ = error + deadzone;
+//    }
+//    float errorLow = setpoint*0.1;
+//    float errorHigh = setpoint*0.9;
 
 //    if(AbsVal(error) < errorLow || AbsVal(error) > errorHigh)
 //    {
@@ -38,12 +53,11 @@ float PIDVelocityController_Update(PIDVelocityController *pidVelocity, float set
 
 	// Compute error of each term
 
-    pidVelocity->proportionalOutput = (pidVelocity->Kp*error) - (pidVelocity->Kp * pidVelocity->Last1Error);
+    pidVelocity->proportionalOutput = (pidVelocity->Kp*errorDZ) - (pidVelocity->Kp * pidVelocity->Last1Error);
 
-    pidVelocity->integratorOutput = (pidVelocity->Ki * error);
+    pidVelocity->integratorOutput = (pidVelocity->Ki * errorDZ);
 
-    pidVelocity->differentiatorOutput = ((pidVelocity->Kd*error)) - ((2.0 * pidVelocity->Kd * pidVelocity->Last1Error))
-    									+((pidVelocity->Kd * pidVelocity->Last2Error))	;
+    pidVelocity->differentiatorOutput = pidVelocity->Kd *(errorDZ -(2.0* pidVelocity->Last1Error) + pidVelocity->Last2Error)	;
 
 	// Compute output and apply limits
 
@@ -62,8 +76,8 @@ float PIDVelocityController_Update(PIDVelocityController *pidVelocity, float set
     // Controller Memory
 
     pidVelocity->ControllerLastOut = pidVelocity->ControllerOut;
-	pidVelocity->Last1Error = error;
 	pidVelocity->Last2Error = pidVelocity->Last1Error;
+	pidVelocity->Last1Error = errorDZ;
 
 	return pidVelocity->ControllerOut;
 }

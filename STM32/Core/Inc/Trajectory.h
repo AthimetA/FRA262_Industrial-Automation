@@ -46,6 +46,29 @@ typedef struct {
 
 } TrajectoryG;
 
+typedef struct {
+	// Current Status
+	float Position;
+	float Velocity;
+	uint16_t CurrentStation;
+	// Goal Position, Station
+	float GoalPositon;
+	uint16_t GoalStation;
+	// Home Data
+	float HomePositon;
+	// Trajectory Data
+	float QX;
+	float QV;
+	// On/Off Motor
+	uint8_t MotorIsOn;
+	// flag
+	uint8_t flagStartTime;
+	uint8_t flagSethome;
+	uint8_t RunningFlag;
+} RobotManagement;
+
+void Robotinit(RobotManagement *Robot);
+void RobotSetHome(RobotManagement *Robot , float homePoint);
 float AbsVal(float number);
 void CoefficientAndTimeCalculation(TrajectoryG *traject, float Qinitial, float Qfinal);
 void TrajectoryEvaluation(TrajectoryG *traject , uint64_t StartTime, uint64_t CurrentTime);

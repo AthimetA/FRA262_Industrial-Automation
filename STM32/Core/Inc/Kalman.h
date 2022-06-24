@@ -20,11 +20,11 @@ typedef struct {
 	// Matrix D
 	float32_t MatD_Data[1];
 	// Matrix Q
-	float32_t MatQ_Data[1];
+	float32_t MatQ_Data[9];
 	// Matrix R
 	float32_t MatR_Data[1];
 	// Matrix G
-	float32_t MatG_Data[3];
+	float32_t MatG_Data[9];
 	// Matrix State
 	float32_t MatState_Data[3];
 	// Matrix State Last
@@ -47,9 +47,9 @@ typedef struct {
 	// Matrix At
 	float32_t MatAt_Data[9];
 	// Matrix Gt
-	float32_t MatGt_Data[3];
+	float32_t MatGt_Data[9];
 	// Matrix GQ
-	float32_t MatGQ_Data[3];
+	float32_t MatGQ_Data[9];
 	// Matrix Ct
 	float32_t MatCt_Data[3];
 	// Matrix Sinv
@@ -111,6 +111,7 @@ typedef struct {
 
 } KalmanFilterVar;
 
+void KalmanMatrixReset(KalmanFilterVar *KalmanVar , float Pvar);
 void KalmanMatrixInit(KalmanFilterVar *KalmanVar);
 void KalmanFilterFunction(KalmanFilterVar *KalmanVar,float32_t PositionDeg);
 

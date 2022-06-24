@@ -14,9 +14,9 @@ void KalmanMatrixInit(KalmanFilterVar *KalmanVar)
 	  arm_mat_init_f32(&(KalmanVar ->MatB), 3, 1, KalmanVar ->MatB_Data);
 	  arm_mat_init_f32(&(KalmanVar ->MatC), 1, 3, KalmanVar ->MatC_Data);
 	  arm_mat_init_f32(&(KalmanVar ->MatD), 1, 1, KalmanVar ->MatD_Data);
-	  arm_mat_init_f32(&(KalmanVar ->MatQ), 1, 1, KalmanVar ->MatQ_Data);
+	  arm_mat_init_f32(&(KalmanVar ->MatQ), 3, 3, KalmanVar ->MatQ_Data);
 	  arm_mat_init_f32(&(KalmanVar ->MatR), 1, 1, KalmanVar ->MatR_Data);
-	  arm_mat_init_f32(&(KalmanVar ->MatG), 3, 1, KalmanVar ->MatG_Data);
+	  arm_mat_init_f32(&(KalmanVar ->MatG), 3, 3, KalmanVar ->MatG_Data);
 	  arm_mat_init_f32(&(KalmanVar ->MatState), 3, 1, KalmanVar ->MatState_Data);
 	  arm_mat_init_f32(&(KalmanVar ->MatStateLast), 3, 1, KalmanVar ->MatStateLast_Data);
 	  arm_mat_init_f32(&(KalmanVar ->MatPredict), 3, 3, KalmanVar ->MatPredict_Data);
@@ -27,13 +27,12 @@ void KalmanMatrixInit(KalmanFilterVar *KalmanVar)
 	  arm_mat_init_f32(&(KalmanVar ->MatK), 3, 1, KalmanVar ->MatK_Data);
 	  arm_mat_init_f32(&(KalmanVar ->MatI), 3, 3, KalmanVar ->MatI_Data);
 	  arm_mat_init_f32(&(KalmanVar ->MatAt), 3, 3, KalmanVar ->MatAt_Data);
-	  arm_mat_init_f32(&(KalmanVar ->MatGt), 1, 3, KalmanVar ->MatGt_Data);
-	  arm_mat_init_f32(&(KalmanVar ->MatGQ), 3, 1, KalmanVar ->MatGQ_Data);
+	  arm_mat_init_f32(&(KalmanVar ->MatGt), 3, 3, KalmanVar ->MatGt_Data);
+	  arm_mat_init_f32(&(KalmanVar ->MatGQ), 3, 3, KalmanVar ->MatGQ_Data);
 	  arm_mat_init_f32(&(KalmanVar ->MatCt), 3, 1, KalmanVar ->MatCt_Data);
 	  arm_mat_init_f32(&(KalmanVar ->MatGQGt), 3, 3, KalmanVar ->MatGQGt_Data);
 	  arm_mat_init_f32(&(KalmanVar ->MatSinv), 1, 1, KalmanVar ->MatSinv_Data);
 	  arm_mat_init_f32(&(KalmanVar ->MatCPk), 1, 3, KalmanVar ->MatCPk_Data);
-
 	  arm_mat_init_f32(&(KalmanVar ->MatAPk), 3, 3, KalmanVar ->MatAPk_Data);
 	  arm_mat_init_f32(&(KalmanVar ->MatAPkAt), 3, 3, KalmanVar ->MatAPkAt_Data);
 	  arm_mat_init_f32(&(KalmanVar ->MatCXk), 1, 1, KalmanVar ->MatCXk_Data);
@@ -49,6 +48,43 @@ void KalmanMatrixInit(KalmanFilterVar *KalmanVar)
 	  // Get Buffer
 	  arm_mat_mult_f32(&(KalmanVar ->MatG), &(KalmanVar ->MatQ), &(KalmanVar ->MatGQ));
 	  arm_mat_mult_f32(&(KalmanVar ->MatGQ), &(KalmanVar ->MatGt), &(KalmanVar ->MatGQGt));
+}
+
+void KalmanMatrixReset(KalmanFilterVar *KalmanVar , float Pvar)
+{
+	for (int index = 0; index < 3; ++index)
+	{
+		KalmanVar ->MatStateLast_Data[index] = 0.0;
+		KalmanVar ->MatState_Data[index] = 0.0;
+	}
+
+	KalmanVar ->MatPredict_Data[0] = Pvar;
+	KalmanVar ->MatPredictLast_Data[0] = Pvar;
+
+	KalmanVar ->MatPredict_Data[1] = 0.0;
+	KalmanVar ->MatPredictLast_Data[1] = 0.0;
+
+	KalmanVar ->MatPredict_Data[2] = 0.0;
+	KalmanVar ->MatPredictLast_Data[2] = 0.0;
+
+	KalmanVar ->MatPredict_Data[3] = 0.0;
+	KalmanVar ->MatPredictLast_Data[3] = 0.0;
+
+	KalmanVar ->MatPredict_Data[4] = Pvar;
+	KalmanVar ->MatPredictLast_Data[4] = Pvar;
+
+	KalmanVar ->MatPredict_Data[5] = 0.0;
+	KalmanVar ->MatPredictLast_Data[5] = 0.0;
+
+	KalmanVar ->MatPredict_Data[6] = 0.0;
+	KalmanVar ->MatPredictLast_Data[6] = 0.0;
+
+	KalmanVar ->MatPredict_Data[7] = 0.0;
+	KalmanVar ->MatPredictLast_Data[7] = 0.0;
+
+	KalmanVar ->MatPredict_Data[8] = Pvar;
+	KalmanVar ->MatPredictLast_Data[8] = Pvar;
+
 }
 
 void KalmanFilterFunction(KalmanFilterVar *KalmanVar,float32_t PositionDeg)

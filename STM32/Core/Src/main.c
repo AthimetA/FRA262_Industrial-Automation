@@ -23,13 +23,14 @@
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
+#include "biquad.h"
 #include "PID.h"
 #include "Kalman.h"
 #include "arm_math.h"
 #include "PIDVelocity.h"
 #include "Trajectory.h"
-
 #include "uartRingBufDMA.h"
 /* USER CODE END Includes */
 
@@ -44,22 +45,23 @@
 #define UART huart2
 #define DMA hdma_usart2_rx
 /* Define the Size */
-#define RxBuf_SIZE 20
+#define RxBuf_SIZE 6
 #define TxBuf_SIZE 20
-#define MainBuf_SIZE 40
+#define MainBuf_SIZE 64
 // ---------------------------------UART--------------------------------- //
 #define Endeff_ADDR 0b01000110
 #define Endeff_TEST 0x45
 /* Controller,Kalman parameters */
 #define dt  0.001f
 #define testDes 90.0f
-#define Kalmanvar  1.0f
-#define PID_KP  2.0f
-#define PID_KI  0.02f
-#define PID_KD  0.001f
-#define PIDVELO_KP  8.0f
-#define PIDVELO_KI  0.4f
-#define PIDVELO_KD  1.2f
+#define Kalmanvar  250000.0f
+#define Pvar  1000.0f
+#define PID_KP  10.0f
+#define PID_KI  0.0000001f
+#define PID_KD  0.000596100527203305f
+#define PIDVELO_KP  4.0f
+#define PIDVELO_KI  0.686615384200884f
+#define PIDVELO_KD  0.0f
 #define PID_LIM_MIN_INT -10000.0f
 #define PID_LIM_MAX_INT  10000.0f
 /* PWM MAX parameters */
@@ -85,12 +87,18 @@ TIM_HandleTypeDef htim11;
 
 UART_HandleTypeDef huart2;
 DMA_HandleTypeDef hdma_usart2_rx;
+DMA_HandleTypeDef hdma_usart2_tx;
 
 /* USER CODE BEGIN PV */
+//Main Robot
+RobotManagement Robot;
+uint8_t homeFF = 0;
+static float homePoint[2] = {0};
 // ---------------------------------UART--------------------------------- //
-uint8_t RxBuf[RxBuf_SIZE];
-uint8_t MainBuf[MainBuf_SIZE];
-uint8_t TxBuf[TxBuf_SIZE];
+static uint8_t RxBuf[RxBuf_SIZE];
+static uint8_t MainBuf[MainBuf_SIZE];
+static uint8_t TxBuf[TxBuf_SIZE];
+static uint8_t FlagAckFromUART = 0;
 
 uint16_t oldPos = 0;
 uint16_t newPos = 0;
@@ -105,10 +113,10 @@ uint8_t ACK_2[2] = { 70, 0b01101110 };
 // normOperation(MCCon) = MotorOn, EndEff On
 // emergency = MotorOff, EndEff Off
 // MCDisCon = MotorOff, EndEff Off
-enum{MCDisCon ,normOperation, emergency} MainState = normOperation;
+enum{AwaitSethome,MCDisCon ,normOperation} UARTState = AwaitSethome;
 // idle = MotorOn, EndEff On(Do nothing)
 // EndEff = MotorOn(PWM=0), EndEff On(Send Something and Shoot Laser)(LED On)
-enum{init, idle, EndEff} RobotState = normOperation;
+enum{init, FindHome , NormM, EndEff, emergency} RobotState = init;
 // Data Buffer
 
  uint8_t sendData[6] = {0};
@@ -124,8 +132,8 @@ enum{init, idle, EndEff} RobotState = normOperation;
  uint8_t uartGoal[15];
  uint8_t goalAmount = 0;
  uint8_t goalIDX = 0;
- uint8_t runningFlag = 0;
  uint8_t homingFlag = 0;
+ uint8_t endEffFlag = 0;
  uint8_t modeNo = 0;
 
  uint64_t timeElapsed = 0;
@@ -141,17 +149,27 @@ float32_t PositionDeg[2] = {0};
 float32_t VelocityDeg = 0;
 /* Initialise Kalman Filter */
 KalmanFilterVar KalmanVar = {
-		{1.0,dt,0.5*dt*dt,0,1.0,dt,0,0,1.0}, // A
+		{1.0,dt,0.5*dt*dt,0.0,1.0,dt,0.0,0.0,1.0}, // A
 		{0.0,0.0,0.0}, // B
 		{1.0,0.0,0.0}, // C
 		{0.0}, // D
-		{1000.0}, //Q
-		{0.000001}, //R
-		{((dt*dt*dt))/6.0,((dt*dt))/2.0,dt}, //G
+//		{80000.0}, //Q
+//		{0.0001},
+//		{((dt*dt*dt))/6.0,((dt*dt))/2.0,dt}, //G
+		{dt*dt*dt*dt*Kalmanvar/4,dt*dt*dt*Kalmanvar/2,dt*dt*Kalmanvar/2,dt*dt*dt*Kalmanvar/2,dt*dt*Kalmanvar,dt*Kalmanvar,dt*dt*Kalmanvar/2,dt*Kalmanvar,Kalmanvar},
+		{0.0001}, // Time delay = 0.1s - 0.2s
+		{0,0,((dt*dt*dt))/6,0,0,((dt*dt))/2,0,0,dt},//G
+//		{8000000.0}, //Q
+//		{0.001}, //R
+//		{3000.0}, //Q
+//		{0.01}, //R
+//		{((dt*dt))/2.0,dt,1}, //G
 		{0.0,0.0,0.0}, // STATE X
 		{0.0,0.0,0.0}, // STATE X-1
-		{0,0,0,0,0,0,0,0,0}, // STATE P
-		{0,0,0,0,0,0,0,0,0}, // STATE P-1
+//		{0,0,0,0,0,0,0,0,0}, // STATE P
+//		{0,0,0,0,0,0,0,0,0}, // STATE P-1
+		{Pvar,0.0,0.0,0.0,Pvar,0.0,0.0,0.0,Pvar}, // STATE P
+		{Pvar,0.0,0.0,0.0,Pvar,0.0,0.0,0.0,Pvar}, // STATE P-1
 		{0.0}, // Y
 		{0.0}, // Z
 		{0.0}, // S
@@ -183,8 +201,7 @@ float setpoint = 0.0f;
 float PWMCHECKER = 0.0f;
 float PositionErrorControl = 0.3f;
 /* Trajectory */
-TrajectoryG traject = {AMAX,JMAX};
-uint8_t flagT = 0;
+TrajectoryG traject;
 static uint64_t StartTime =0;
 static uint64_t CurrentTime =0;
 static uint64_t CheckLoopStartTime =0;
@@ -195,19 +212,20 @@ uint8_t I2CEndEffectorReadFlag = 0;
 uint8_t I2CEndEffectorWriteFlag = 0;
 //static uint16_t len =1;
 //static uint8_t dumdata[2] ={0};
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
+static void MX_DMA_Init(void);
+static void MX_I2C1_Init(void);
 static void MX_TIM1_Init(void);
+static void MX_TIM11_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
-static void MX_TIM11_Init(void);
-static void MX_DMA_Init(void);
 static void MX_TIM4_Init(void);
-static void MX_I2C1_Init(void);
 /* USER CODE BEGIN PFP */
 uint64_t Micros();
 uint32_t PWMAbs(int32_t PWM);
@@ -217,9 +235,10 @@ float AbsVal(float number);
 void ControllLoopAndErrorHandler();
 void I2CWriteFcn(uint8_t *Wdata, uint16_t len, uint16_t MemAd);
 void I2CReadFcn(uint8_t *Rdata, uint16_t len, uint16_t MemAd);
-
-void stateManagement(uint8_t *Rxbuffer , uint16_t rxDataCurPos , uint16_t rxDataLastPos);
-
+void UARTstateManagement(uint8_t *Rxbuffer , uint16_t rxDataCurPos , uint16_t rxDataLastPos);
+void RobotstataeManagement();
+void RobotRunToPositon(float Destination);
+void TIM_ResetCounter(TIM_TypeDef* TIMx);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -257,12 +276,12 @@ int main(void)
   MX_GPIO_Init();
   MX_DMA_Init();
   MX_USART2_UART_Init();
+  MX_I2C1_Init();
   MX_TIM1_Init();
+  MX_TIM11_Init();
   MX_TIM2_Init();
   MX_TIM3_Init();
-  MX_TIM11_Init();
   MX_TIM4_Init();
-  MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
   //----UART-----//
   Ringbuf_Init();
@@ -281,8 +300,6 @@ int main(void)
   PIDVelocityController_Init(&PidVelo);
   PIDVelocityController_Init(&PidPos);
 
-  CoefficientAndTimeCalculation(&traject,0.0,testDes);
-
   btncheck = 0;
   /* USER CODE END 2 */
 
@@ -290,6 +307,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  RobotstataeManagement();
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -417,7 +435,7 @@ static void MX_TIM1_Init(void)
   sConfigOC.Pulse = 0;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
-  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  sConfigOC.OCFastMode = TIM_OCFAST_ENABLE;
   sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
   sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_RESET;
   if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
@@ -658,6 +676,9 @@ static void MX_DMA_Init(void)
   /* DMA1_Stream5_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Stream5_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Stream5_IRQn);
+  /* DMA1_Stream6_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream6_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream6_IRQn);
 
 }
 
@@ -697,7 +718,7 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin : Pin_Proxi_Pin */
   GPIO_InitStruct.Pin = Pin_Proxi_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(Pin_Proxi_GPIO_Port, &GPIO_InitStruct);
 
@@ -735,16 +756,8 @@ void EncoderRead()
 		WrappingStep-=12000;
 	}
 	PositionRaw = EncoderRawData[0] + WrappingStep;
-//	PositionRad = (PositionRaw/12000.0)*2.0*3.14;
 	PositionDeg[0] = (PositionRaw/12000.0)*360.0;
-	if(PositionDeg[0] != PositionDeg[1])
-	{
-		VelocityDeg = ((PositionDeg[0] - PositionDeg[1])/dt);
-	}
-	else
-	{
-		VelocityDeg = VelocityDeg;
-	}
+	VelocityDeg = ((PositionDeg[0] - PositionDeg[1])/dt);
 	EncoderRawData[1] = EncoderRawData[0];
 	PositionDeg[1] = PositionDeg[0];
 }
@@ -778,29 +791,40 @@ void Drivemotor(int32_t PWM){
 
 void ControllLoopAndErrorHandler()
 {
-//	setpoint = 180.0;
+//	setpoint = 40.0;
 //	PIDVelocityController_Update(&PidVelo, setpoint, KalmanVar.MatState_Data[1]);
 //	PWMCHECKER = PidVelo.ControllerOut;
-//	Drivemotor(2500.0);
-	  if (flagT == 0)
-	  {
-	    StartTime = Micros();
-	    flagT =1;
-	  }
+//	Drivemotor(PWMCHECKER);
+	if(Robot.MotorIsOn == 1)
+	{
+		if (Robot.flagStartTime == 1)
+		{
+			StartTime = Micros();
+			Robot.flagStartTime = 0;
+		}
 		CurrentTime = Micros();
 		TrajectoryEvaluation(&traject,StartTime,CurrentTime);
-	  if(AbsVal(testDes - PositionDeg[0]) < 0.5 && AbsVal(KalmanVar.MatState_Data[1]) < 1.0)
-	  {
-	    PWMCHECKER = 0.0;
-	    Drivemotor(PWMCHECKER);
-	  }
-	  else
-	  {
-		PIDVelocityController_Update(&PidPos,traject.QX, PositionDeg[0]);
-		PIDVelocityController_Update(&PidVelo, traject.QV + PidPos.ControllerOut  , KalmanVar.MatState_Data[1]);
-		PWMCHECKER = PidVelo.ControllerOut;
+		Robot.QX = traject.QX;
+		Robot.QV = traject.QV;
+		if(AbsVal(Robot.GoalPositon - Robot.Position) < 0.5 && AbsVal(Robot.Velocity) < 1.0)
+		{
+			PWMCHECKER = 0.0;
+			Drivemotor(PWMCHECKER);
+			Robot.RunningFlag = 0;
+		}
+		else
+		{
+			PIDVelocityController_Update(&PidPos, Robot.QX , Robot.Position);
+			PIDVelocityController_Update(&PidVelo, Robot.QV + PidPos.ControllerOut  , Robot.Velocity);
+			PWMCHECKER = PidVelo.ControllerOut;
+			Drivemotor(PWMCHECKER);
+		}
+	}
+	else
+	{
+		PWMCHECKER = 0.0;
 		Drivemotor(PWMCHECKER);
-	  }
+	}
 }
 
 void I2CWriteFcn(uint8_t *Wdata, uint16_t len, uint16_t MemAd) {
@@ -822,32 +846,6 @@ void I2CReadFcn(uint8_t *Rdata, uint16_t len, uint16_t MemAd) {
 	}
 }
 
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
-{
-//	if(GPIO_Pin == GPIO_PIN_13)
-//	{
-//		btncheck++;
-////		I2CWriteFcn(0x23,8,Endeff_ADDR);
-//		len = 1;
-//		dumdata[0] = 0x45;
-//		I2CEndEffectorWriteFlag = 1;
-//		I2CWriteFcn(dumdata,len,Endeff_ADDR);
-////		HAL_I2C_Master_Transmit_IT(&hi2c1, Endeff_ADDR, 0b01000101, 1);
-////		HAL_I2C_Mem_Write_IT(&hi2c1, Endeff_ADDR, Endeff_TEST, I2C_MEMADD_SIZE_16BIT, pData, Size);
-//	}
-	if(GPIO_Pin == GPIO_PIN_10)
-	{
-//		HAL_GPIO_WritePin(GPIOx, GPIO_Pin, PinState)
-		HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_3);
-	}
-	if(GPIO_Pin == GPIO_PIN_5)
-	{
-//		HAL_GPIO_WritePin(GPIOx, GPIO_Pin, PinState)
-		HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_4);
-		btncheck++;
-	}
-}
-
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	if (htim == &htim11) {
 		_micro += 65535;
@@ -857,6 +855,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 		EncoderRead();
 		KalmanFilterFunction(&KalmanVar,PositionDeg[0]);
 //		KalmanFilterFunction(&KalmanVar,VelocityDeg);
+		Robot.Position = PositionDeg[0];
+		Robot.Velocity = KalmanVar.MatState_Data[1];
 		ControllLoopAndErrorHandler();
 		CheckLoopStopTime = Micros();
 		CheckLoopStopTime = Micros();
@@ -913,6 +913,22 @@ uint8_t checkSum (uint8_t *buffertoCheckSum , int bufferSize)
 	}
 }
 
+uint8_t checkAck (uint8_t *buffertoCheckAck , uint16_t Size)
+{
+	for (int i=0; i < Size; i++)
+	{
+		if ((RxBuf[i] == 0b01011000) && (RxBuf[i+1] == 0b01110101))
+		{
+			return 1;
+		}
+		else
+		{
+			return 0;
+		}
+	}
+	return 2;
+}
+
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 {
 		oldPos = newPos;  // Update the last position before copying new data
@@ -953,84 +969,101 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 
 
 	/****************** PROCESS (Little) THE DATA HERE *********************/
-		if(checkSum(RxBuf, newPos-oldPos))
+		if(checkSum(RxBuf, newPos-oldPos) || checkAck(RxBuf, Size))
 		{
-		stateManagement(RxBuf,newPos,oldPos);
+			UARTstateManagement(RxBuf,newPos,oldPos);
 		}
 }
 
-void stateManagement(uint8_t *Rxbuffer , uint16_t rxDataCurPos , uint16_t rxDataLastPos)
+void UARTstateManagement(uint8_t *Rxbuffer , uint16_t rxDataCurPos , uint16_t rxDataLastPos)
 {
 	uint16_t rxDatalen = rxDataCurPos - rxDataLastPos;
-	switch (MainState) {
-		case emergency:
-			//Do Some thing
-			// Return to norm by IT GPIO
+	static uint8_t stateSwitch = 0;
+	switch (UARTState)
+	{
+		case AwaitSethome:
+			// AFK Wait for Home calibration
 			break;
 		case MCDisCon:
 			if(Rxbuffer[0] == 0b10010010)
 			{
 				// Connect MC and Back to normal
-				MainState = normOperation;
-				HAL_UART_Transmit_IT(&UART, ACK_1, 2);
+				modeNo = 2;
+				UARTState = normOperation;
+				HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
 			}
 			break;
 		case normOperation:
-			switch (Rxbuffer[0])
+			if((Rxbuffer[0] >> 4) == 0b1001) stateSwitch = Rxbuffer[0];
+			else stateSwitch = Rxbuffer[2];
+			switch (stateSwitch)
 			{
 				// Mode 1 Test Command
 				case 0b10010001:
 					// Do nothing
-					HAL_UART_Transmit_IT(&UART, ACK_1, 2);
-				break;
+					modeNo = 1;
+					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
+					break;
 				// Mode 2 Connect MC
 				case 0b10010010:
 					// Start and Connect MC
-					MainState = normOperation;
-					HAL_UART_Transmit_IT(&UART, ACK_1, 2);
-				break;
+					modeNo = 2;
+					UARTState = normOperation;
+					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
+					break;
 				// Mode 3 Disconnect MC
 				case 0b10010011:
 					// Disconnect MC
-					MainState = MCDisCon;
-					HAL_UART_Transmit_IT(&UART, ACK_1, 2);
-				break;
+					modeNo = 3;
+					UARTState = MCDisCon;
+					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
+					break;
 				// Mode 4 Set Angular Velocity
 				case 0b10010100:
-					uartVelo = Rxbuffer[1]+Rxbuffer[2];
-					HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
+					modeNo = 4;
+					uartVelo = ((Rxbuffer[2])/255.0)*10.0;
+					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
 					break;
 				// Mode 5 Set Angular Position
 				case 0b10010101:
-					uartPos = Rxbuffer[1]+Rxbuffer[2];
-					HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
+					modeNo = 5;
+					uartPos = (uint16_t)((((Rxbuffer[1] << 8) | Rxbuffer[2])*360.0)/62800);
+					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
 					break;
-//				// Mode 6
-//				case 0b10010110:
-//					memset(uartGoal, 0, 15);
-//					goalAmount = 1;
-//					uartGoal[0] = RxDataBuffer[rxDataStart + 2];
-//					HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
-//					break;
-//				// Mode 7
-//				case 0b10010111:
-//					memset(uartGoal, 0, 15);
-//					goalAmount = RxDataBuffer[rxDataStart + 1];
-//					for(int i = 0; i < ((goalAmount+1)/2); i++){
-//						uartGoal[0+(i*2)] = RxDataBuffer[rxDataStart+(2+i)] & 15; // low 8 bit (last 4 bit)
-//						uartGoal[1+(i*2)] = RxDataBuffer[rxDataStart+(2+i)] >> 4; // high 8 bit (first 4 bit)
-//					}
-//					HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
-//					break;
+				// Mode 6
+				case 0b10010110:
+					modeNo = 6;
+					memset(uartGoal, 0, 15);
+					goalAmount = 1;
+					uartGoal[0] = Rxbuffer[2];
+					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
+					break;
+				// Mode 7
+				case 0b10010111:
+					modeNo = 7;
+					memset(uartGoal, 0, 15);
+					goalAmount = Rxbuffer[1];
+					for(int i = 0; i < ((goalAmount+1)/2); i++){
+						uartGoal[0+(i*2)] = Rxbuffer[(2+i)] & 15; // low 8 bit (last 4 bit)
+						uartGoal[1+(i*2)] = Rxbuffer[(2+i)] >> 4; // high 8 bit (first 4 bit)
+					}
+					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
+					break;
 				// Mode 8
 				case 0b10011000:
-					runningFlag = 1;
-					HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
+					modeNo = 8;
+					Robot.GoalPositon = uartPos;
+					CoefficientAndTimeCalculation(&traject,Robot.Position,Robot.GoalPositon);
+					Robot.flagStartTime = 1;
+					Robot.RunningFlag = 1;
+					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
 					break;
 				// Mode 9
 				case 0b10011001:
-					goalData = 10;
-					if(runningFlag == 1){
+					modeNo = 9;
+					FlagAckFromUART = 0;
+					goalData = 0;
+					if(Robot.RunningFlag == 1){
 						memcpy(sendData, ACK_1, 2);
 						sendData[2] = 153; // start-mode
 						sendData[3] = 0;
@@ -1044,60 +1077,191 @@ void stateManagement(uint8_t *Rxbuffer , uint16_t rxDataCurPos , uint16_t rxData
 						sendData[4] = goalData; // set current goal
 						sendData[5] = (uint8_t)(~(sendData[2]+sendData[3]+sendData[4]));
 					}
-					HAL_UART_Transmit_IT(&huart2, sendData, 6);
+					HAL_UART_Transmit_DMA(&UART, sendData, 6);
 					break;
 				// Mode 10
 				case 0b10011010:
 					modeNo = 10;
-					posData = 10271; // data from zhong
-					if(runningFlag == 1){
+					FlagAckFromUART = 0;
+					posData = (uint16_t)(((((Robot.Position)*10000.0)*M_PI)/180.0));
+					if(Robot.RunningFlag == 1){
 						memcpy(sendData, ACK_1, 2);
 						sendData[2] = 154; // start-mode
-						sendData[3] = ((posData*65535)/16000) & 255; // set low byte posData
-						sendData[4] = ((posData*65535)/16000) >> 8; // set high byte posData
+						sendData[3] = (posData) >> 8 ; // set high byte posData
+						sendData[4] = (posData) & 0xff; // set low byte posData
 						sendData[5] = (uint8_t)(~(sendData[2]+sendData[3]+sendData[4]));
 					}
 					else{
 						memcpy(sendData, ACK_2, 2);
 						sendData[2] = 154; // start-mode
-						sendData[3] = ((posData*65535)/16000) & 255; // set low byte posData
-						sendData[4] = ((posData*65535)/16000) >> 8; // set high byte posData
+						sendData[3] = (posData) >> 8; // set low byte posData
+						sendData[4] = (posData) & 0xff; // set high byte posData
 						sendData[5] = (uint8_t)(~(sendData[2]+sendData[3]+sendData[4]));
 					}
-					HAL_UART_Transmit_IT(&huart2, sendData, 6);
+					HAL_UART_Transmit_DMA(&UART, sendData, 6);
 					break;
 				// Mode 11
 				case 0b10011011:
-					veloData = 2496;
-					if(runningFlag == 1){
+					modeNo = 11;
+					FlagAckFromUART = 0;
+					veloData = (uint16_t)((((Robot.Velocity*30.0)/M_PI)/10.0)*255.0);
+					if(Robot.RunningFlag == 1){
 						memcpy(sendData, ACK_1, 2);
 						sendData[2] = 155;
-						sendData[4] = ((veloData*255)/16000) & 255; // set low byte posData
+						sendData[4] = veloData >> 8; // set low byte posData
 						sendData[5] = (~(sendData[2]+sendData[3]+sendData[4]));
 					}
 					else{
 						memcpy(sendData, ACK_2, 2);
 						sendData[2] = 155;
-						sendData[4] = ((veloData*255)/16000) & 255; // set low byte posData
+						sendData[4] = veloData >> 8; // set low byte posData
 						sendData[5] = (~(sendData[2]+sendData[3]+sendData[4]));
 					}
-					HAL_UART_Transmit_IT(&huart2, sendData, 6);
+					HAL_UART_Transmit_DMA(&UART, sendData, 6);
 					break;
 				// Mode 12
 				case 0b10011100:
-					HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
+					modeNo = 12;
+					endEffFlag = 1;
+					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
 					break;
 				// Mode 13
 				case 0b10011101:
-					HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
+					modeNo = 13;
+					endEffFlag = 0;
+					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
 					break;
 				// Mode 14
 				case 0b10011110:
+					modeNo = 14;
+					RobotRunToPositon(Robot.HomePositon);
 					homingFlag = 1;
-					HAL_UART_Transmit_IT(&huart2, ACK_1, 2);
+					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
 					break;
 				}
 	}
+}
+
+void RobotstataeManagement()
+{
+	switch (RobotState)
+	{
+		case init:
+			// Reset all Parameter
+			Robotinit(&Robot);
+			Robot.MotorIsOn = 1;
+			// Start Finding home Position
+			Robot.flagSethome = 1;
+			// Turn 360 Deg
+			RobotRunToPositon(360.0);
+			// Goto next State
+			RobotState = FindHome;
+			break;
+		case FindHome:
+			if(Robot.RunningFlag == 0)
+			{
+				if(Robot.flagSethome == 2)
+				{
+					RobotRunToPositon(Robot.HomePositon);
+					Robot.RunningFlag = 1;
+					Robot.flagSethome = 3;
+				}
+				else if(Robot.flagSethome == 3)
+				{
+					// Reset Encoder
+					TIM_ResetCounter(TIM2);
+					EncoderRawData[0] = 0;
+					EncoderRawData[1] = 0;
+					WrappingStep = 0;
+					// Reset Trajectory
+					CoefficientAndTimeCalculation(&traject,0.0,0.0);
+					Robot.flagStartTime = 1;
+					StartTime = 0;
+					CurrentTime = 0;
+					// Reset Position
+					PositionDeg[0] = 0;
+					PositionDeg[1] = 0;
+					KalmanMatrixReset(&KalmanVar, Pvar);
+					Robotinit(&Robot);
+					// Reset Pid
+					PIDVelocityController_Init(&PidVelo);
+					PIDVelocityController_Init(&PidPos);
+					// Start Motor
+					Robot.MotorIsOn = 1;
+					FlagAckFromUART = 1;
+					UARTState = normOperation;
+					RobotState = NormM;
+				}
+			}
+			break;
+		case NormM:
+			break;
+		case EndEff:
+			break;
+		case emergency:
+			break;
+	}
+}
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+//	if(GPIO_Pin == GPIO_PIN_13)
+//	{
+//		btncheck++;
+////		I2CWriteFcn(0x23,8,Endeff_ADDR);
+//		len = 1;
+//		dumdata[0] = 0x45;
+//		I2CEndEffectorWriteFlag = 1;
+//		I2CWriteFcn(dumdata,len,Endeff_ADDR);
+////		HAL_I2C_Master_Transmit_IT(&hi2c1, Endeff_ADDR, 0b01000101, 1);
+////		HAL_I2C_Mem_Write_IT(&hi2c1, Endeff_ADDR, Endeff_TEST, I2C_MEMADD_SIZE_16BIT, pData, Size);
+//	}
+	if(GPIO_Pin == GPIO_PIN_10)
+	{
+		// Proxi Sensor
+		if(Robot.flagSethome == 1)
+		{
+			homePoint[homeFF] = PositionDeg[0];
+			homeFF++;
+			if(homeFF == 2)
+			{
+				if(homePoint[1]-homePoint[0] > 180.0)
+				{
+					Robot.HomePositon =  0;
+				}
+				else
+				{
+					Robot.HomePositon = (homePoint[0]+homePoint[1])/2.0;
+				}
+				Robot.flagSethome = 2;
+			}
+		}
+//		HAL_GPIO_WritePin(GPIOx, GPIO_Pin, PinState)
+		HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_3);
+	}
+	if(GPIO_Pin == GPIO_PIN_5)
+	{
+//		HAL_GPIO_WritePin(GPIOx, GPIO_Pin, PinState)
+		HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_4);
+		btncheck++;
+	}
+}
+void RobotRunToPositon(float Destination)
+{
+	Robot.GoalPositon = Destination;
+	CoefficientAndTimeCalculation(&traject,Robot.Position,Robot.GoalPositon);
+	// Start Trajectory Evaluator
+	Robot.flagStartTime = 1;
+	Robot.RunningFlag = 1;
+}
+
+void TIM_ResetCounter(TIM_TypeDef* TIMx)
+{
+  /* Check the parameters */
+  assert_param(IS_TIM_ALL_PERIPH(TIMx));
+
+  /* Reset the Counter Register value */
+  TIMx->CNT = 0;
 }
 /* USER CODE END 4 */
 

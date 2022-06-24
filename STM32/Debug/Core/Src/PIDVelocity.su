@@ -1,2 +1,2 @@
 ../Core/Src/PIDVelocity.c:11:7:PIDVelocityController_Init	16	static
-../Core/Src/PIDVelocity.c:24:7:PIDVelocityController_Update	56	static
+../Core/Src/PIDVelocity.c:24:7:PIDVelocityController_Update	48	static
