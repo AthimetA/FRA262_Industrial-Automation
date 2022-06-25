@@ -49,7 +49,7 @@
 #define TxBuf_SIZE 20
 #define MainBuf_SIZE 64
 // ---------------------------------UART--------------------------------- //
-#define Endeff_ADDR 0b01000110
+#define Endeff_ADDR 0x23<<1
 #define Endeff_TEST 0x45
 /* Controller,Kalman parameters */
 #define dt  0.001f
@@ -69,6 +69,11 @@
 #define JMAX 573.0f
 /* PWM MAX parameters */
 #define PWM_MAX 10000
+
+#define EndEffRxBuf_SIZE 1
+#define EndEffTxBuf_SIZE 1
+#define I2CRxDataLen 1
+#define I2CTxDataLen 1
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -113,12 +118,13 @@ uint8_t ACK_2[2] = { 70, 0b01101110 };
 // normOperation(MCCon) = MotorOn, EndEff On
 // emergency = MotorOff, EndEff Off
 // MCDisCon = MotorOff, EndEff Off
-enum{AwaitSethome,MCDisCon ,normOperation} UARTState = normOperation;
+enum{AwaitSethome,MCDisCon ,normOperation} UARTState = AwaitSethome;
 // idle = MotorOn, EndEff On(Do nothing)
 // EndEff = MotorOn(PWM=0), EndEff On(Send Something and Shoot Laser)(LED On)
 enum{init, FindHome , NormM, EndEff, emergency} RobotState = init;
+// EndEff State
+enum{idle,CheckBeforRun,OpenLaser,SetupReadStatus,ReadStatus} EndEffState = idle;
 // Data Buffer
-
  uint8_t sendData[6] = {0};
 
  //for sending data to base sys
@@ -210,8 +216,9 @@ static uint64_t CheckLoopDiffTime =0;
 static uint8_t btncheck = 0;
 uint8_t I2CEndEffectorReadFlag = 0;
 uint8_t I2CEndEffectorWriteFlag = 0;
-//static uint16_t len =1;
-//static uint8_t dumdata[2] ={0};
+static uint8_t I2CRxDataBuffer[EndEffRxBuf_SIZE] ={0};
+static uint8_t I2CTxDataBuffer[EndEffTxBuf_SIZE] ={0};
+uint8_t EndEffMode = 0;
 
 /* USER CODE END PV */
 
@@ -233,12 +240,16 @@ void Drivemotor(int32_t PWM);
 void EncoderRead();
 float AbsVal(float number);
 void ControllLoopAndErrorHandler();
-void I2CWriteFcn(uint8_t *Wdata, uint16_t len, uint16_t MemAd);
-void I2CReadFcn(uint8_t *Rdata, uint16_t len, uint16_t MemAd);
-void UARTstateManagement(uint8_t *Rxbuffer , uint16_t rxDataCurPos , uint16_t rxDataLastPos);
-void RobotstataeManagement();
+void I2CWriteFcn(uint8_t *Wdata);
+void I2CReadFcn(uint8_t *Rdata);
 void RobotRunToPositon(float Destination);
 void TIM_ResetCounter(TIM_TypeDef* TIMx);
+void EndeffLaserOpen();
+void EndeffLaserReadStatus();
+
+void UARTstateManagement(uint8_t *Rxbuffer , uint16_t rxDataCurPos , uint16_t rxDataLastPos);
+void RobotstateManagement();
+void EndEffstateManagement();
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -307,7 +318,8 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  RobotstataeManagement();
+	  RobotstateManagement();
+	  EndEffstateManagement();
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -827,25 +839,6 @@ void ControllLoopAndErrorHandler()
 	}
 }
 
-void I2CWriteFcn(uint8_t *Wdata, uint16_t len, uint16_t MemAd) {
-	if (I2CEndEffectorWriteFlag && hi2c1.State == HAL_I2C_STATE_READY) {
-//		static uint8_t data;
-//		data = Wdata[0];
-		HAL_I2C_Master_Transmit_IT(&hi2c1, MemAd, Wdata, len);
-//		HAL_I2C_Mem_Write_IT(&hi2c1, DevAddress, MemAddress, MemAddSize, pData, Size);
-		I2CEndEffectorWriteFlag = 0;
-	}
-}
-void I2CReadFcn(uint8_t *Rdata, uint16_t len, uint16_t MemAd) {
-	if (I2CEndEffectorReadFlag && hi2c1.State == HAL_I2C_STATE_READY) {
-//		static uint8_t data;
-//		data = Rdata;
-//		HAL_I2C_Mem_Read_IT(&hi2c1, DevAddress, MemAddress, MemAddSize, pData, Size)
-//		HAL_I2C_Master_Receive_IT(&hi2c1, DevAddress, pData, Size);
-		I2CEndEffectorReadFlag = 0;
-	}
-}
-
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	if (htim == &htim11) {
 		_micro += 65535;
@@ -995,7 +988,7 @@ void UARTstateManagement(uint8_t *Rxbuffer , uint16_t rxDataCurPos , uint16_t rx
 			break;
 		case normOperation:
 			if((Rxbuffer[0] >> 4) == 0b1001) stateSwitch = Rxbuffer[0];
-			else stateSwitch = Rxbuffer[2];
+			else break;
 			switch (stateSwitch)
 			{
 				// Mode 1 Test Command
@@ -1142,7 +1135,7 @@ void UARTstateManagement(uint8_t *Rxbuffer , uint16_t rxDataCurPos , uint16_t rx
 	}
 }
 
-void RobotstataeManagement()
+void RobotstateManagement()
 {
 	switch (RobotState)
 	{
@@ -1203,19 +1196,139 @@ void RobotstataeManagement()
 	}
 }
 
+void I2CWriteFcn(uint8_t *Wdata) {
+	if (I2CEndEffectorWriteFlag == 1  && hi2c1.State == HAL_I2C_STATE_READY) {
+		static uint8_t data[EndEffRxBuf_SIZE];
+		memcpy ((uint8_t *)data, (uint8_t *)Wdata, EndEffRxBuf_SIZE);
+		HAL_I2C_Master_Transmit_IT(&hi2c1, Endeff_ADDR, data, I2CTxDataLen);
+//		HAL_I2C_Mem_Write_IT(&hi2c1, DevAddress, MemAddress, MemAddSize, pData, Size);
+		I2CEndEffectorWriteFlag = 0;
+	}
+}
+void I2CReadFcn(uint8_t *Rdata) {
+	if (I2CEndEffectorReadFlag == 1 && hi2c1.State == HAL_I2C_STATE_READY) {
+		static uint8_t Regis = 0x23;
+//		HAL_I2C_Mem_Read_IT(&hi2c1, Endeff_ADDR, Regis, I2C_MEMADD_SIZE_8BIT, Rdata, I2CRxDataLen);
+		HAL_I2C_Master_Receive_IT(&hi2c1, Endeff_ADDR, Rdata, I2CRxDataLen);
+		I2CEndEffectorReadFlag =  0;
+	}
+}
+
+void HAL_I2C_MasterTxCpltCallback(I2C_HandleTypeDef *hi2c)
+{
+	I2CEndEffectorWriteFlag = 2;
+}
+
+void HAL_I2C_MasterRxCpltCallback(I2C_HandleTypeDef *hi2c)
+{
+	I2CEndEffectorReadFlag =  2;
+}
+
+void EndEffstateManagement()
+{
+	switch (EndEffState)
+	{
+		case idle:
+			// Do not thing wait for command
+			EndEffMode = 0;
+//			I2CEndEffectorWriteFlag = 1;
+			break;
+		case CheckBeforRun:
+			// Set up Read
+			I2CTxDataBuffer[0] = 0x23;
+			I2CWriteFcn(I2CTxDataBuffer);
+			if(hi2c1.State == HAL_I2C_STATE_READY)
+			{
+				I2CReadFcn(I2CRxDataBuffer);
+				if(hi2c1.State == HAL_I2C_STATE_READY)
+				{
+					if(I2CRxDataBuffer[0] == 0x78)
+					{
+						EndEffState = OpenLaser;
+						I2CEndEffectorWriteFlag = 1;
+						I2CEndEffectorReadFlag =  0;
+					}
+					else
+					{
+						EndEffState = idle;
+					}
+				}
+			}
+
+		break;
+		case OpenLaser:
+			// Open Laser
+			I2CTxDataBuffer[0] = 0x45;
+			I2CWriteFcn(I2CTxDataBuffer);
+			if(hi2c1.State == HAL_I2C_STATE_READY)
+			{
+				EndEffState = SetupReadStatus;
+				I2CEndEffectorWriteFlag = 1;
+			}
+			break;
+		case SetupReadStatus:
+			// Set up Read
+			I2CTxDataBuffer[0] = 0x23;
+			I2CWriteFcn(I2CTxDataBuffer);
+			if(hi2c1.State == HAL_I2C_STATE_READY)
+			{
+				EndEffState = ReadStatus;
+				I2CEndEffectorReadFlag =  1;
+			}
+			break;
+		case ReadStatus:
+			EndEffMode = 7;
+			I2CReadFcn(I2CRxDataBuffer);
+			if(hi2c1.State == HAL_I2C_STATE_READY)
+			{
+				I2CEndEffectorReadFlag =  1;
+				if(I2CRxDataBuffer[0] == 0x78)
+				{
+					EndEffState = idle;
+					EndEffMode = 1;
+//					I2CEndEffectorWriteFlag =  1;
+//					EndEffState = SetupReadStatus;
+				}
+				else if(I2CRxDataBuffer[0] == 0x12)
+				{
+					EndEffMode = 2;
+					EndEffState = SetupReadStatus;
+					I2CEndEffectorWriteFlag = 1;
+				}
+				else if(I2CRxDataBuffer[0] == 0x34)
+				{
+					EndEffMode = 3;
+					EndEffState = SetupReadStatus;
+					I2CEndEffectorWriteFlag = 1;
+				}
+				else if(I2CRxDataBuffer[0] == 0x56)
+				{
+					EndEffMode = 4;
+					EndEffState = SetupReadStatus;
+					I2CEndEffectorWriteFlag = 1;
+				}
+			}
+			break;
+	}
+}
+
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-//	if(GPIO_Pin == GPIO_PIN_13)
-//	{
+	if(GPIO_Pin == GPIO_PIN_13)
+	{
+		I2CEndEffectorWriteFlag = 1;
+		I2CEndEffectorReadFlag =  1;
+		EndEffState = CheckBeforRun;
 //		btncheck++;
-////		I2CWriteFcn(0x23,8,Endeff_ADDR);
-//		len = 1;
-//		dumdata[0] = 0x45;
+//		EndeffLaserOpen();
+//		I2CWriteFcn(0x23,8,Endeff_ADDR);
+//		I2CRxDataLen = 1;
+//		I2CRxDataBuffer[0] = 0x45;
 //		I2CEndEffectorWriteFlag = 1;
-//		I2CWriteFcn(dumdata,len,Endeff_ADDR);
-////		HAL_I2C_Master_Transmit_IT(&hi2c1, Endeff_ADDR, 0b01000101, 1);
-////		HAL_I2C_Mem_Write_IT(&hi2c1, Endeff_ADDR, Endeff_TEST, I2C_MEMADD_SIZE_16BIT, pData, Size);
-//	}
+//		I2CWriteFcn(I2CRxDataBuffer,I2CRxDataLen,Endeff_ADDR);
+//		HAL_I2C_Master_Transmit_IT(&hi2c1, Endeff_ADDR, 0b01000101, 1);
+//		HAL_I2C_Mem_Write_IT(&hi2c1, Endeff_ADDR, Endeff_TEST, I2C_MEMADD_SIZE_16BIT, pData, Size);
+	}
 	if(GPIO_Pin == GPIO_PIN_10)
 	{
 		// Proxi Sensor
