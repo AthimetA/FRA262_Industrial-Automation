@@ -24,11 +24,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include "arm_math.h"
 
 #include "biquad.h"
 #include "PID.h"
 #include "Kalman.h"
-#include "arm_math.h"
 #include "PIDVelocity.h"
 #include "Trajectory.h"
 #include "uartRingBufDMA.h"
@@ -49,9 +49,11 @@
 #define TxBuf_SIZE 20
 #define MainBuf_SIZE 64
 // ---------------------------------UART--------------------------------- //
+// ---------------------------------I2C---------------------------------- //
 #define Endeff_ADDR 0x23<<1
 #define Endeff_TEST 0x45
-/* Controller,Kalman parameters */
+// ---------------------------------I2C---------------------------------- //
+// ---------------------------------Kalman------------------------------- //
 #define dt  0.001f
 #define testDes 90.0f
 #define Kalmanvar  250000.0f
@@ -124,6 +126,7 @@ enum{AwaitSethome,MCDisCon ,normOperation} UARTState = AwaitSethome;
 enum{init, FindHome , NormM, EndEff, emergency} RobotState = init;
 // EndEff State
 enum{idle,CheckBeforRun,OpenLaser,SetupReadStatus,ReadStatus} EndEffState = idle;
+enum{Opening,Closing,Working,AwaitCommand} EndEffStatus = AwaitCommand;
 // Data Buffer
  uint8_t sendData[6] = {0};
 
@@ -218,7 +221,6 @@ uint8_t I2CEndEffectorReadFlag = 0;
 uint8_t I2CEndEffectorWriteFlag = 0;
 static uint8_t I2CRxDataBuffer[EndEffRxBuf_SIZE] ={0};
 static uint8_t I2CTxDataBuffer[EndEffTxBuf_SIZE] ={0};
-uint8_t EndEffMode = 0;
 
 /* USER CODE END PV */
 
@@ -1230,7 +1232,7 @@ void EndEffstateManagement()
 	{
 		case idle:
 			// Do not thing wait for command
-			EndEffMode = 0;
+			EndEffStatus = AwaitCommand;
 //			I2CEndEffectorWriteFlag = 1;
 			break;
 		case CheckBeforRun:
@@ -1277,7 +1279,6 @@ void EndEffstateManagement()
 			}
 			break;
 		case ReadStatus:
-			EndEffMode = 7;
 			I2CReadFcn(I2CRxDataBuffer);
 			if(hi2c1.State == HAL_I2C_STATE_READY)
 			{
@@ -1285,25 +1286,23 @@ void EndEffstateManagement()
 				if(I2CRxDataBuffer[0] == 0x78)
 				{
 					EndEffState = idle;
-					EndEffMode = 1;
-//					I2CEndEffectorWriteFlag =  1;
-//					EndEffState = SetupReadStatus;
+					EndEffStatus = AwaitCommand;
 				}
 				else if(I2CRxDataBuffer[0] == 0x12)
 				{
-					EndEffMode = 2;
+					EndEffStatus = Opening;
 					EndEffState = SetupReadStatus;
 					I2CEndEffectorWriteFlag = 1;
 				}
 				else if(I2CRxDataBuffer[0] == 0x34)
 				{
-					EndEffMode = 3;
+					EndEffStatus = Working;
 					EndEffState = SetupReadStatus;
 					I2CEndEffectorWriteFlag = 1;
 				}
 				else if(I2CRxDataBuffer[0] == 0x56)
 				{
-					EndEffMode = 4;
+					EndEffStatus = Closing;
 					EndEffState = SetupReadStatus;
 					I2CEndEffectorWriteFlag = 1;
 				}
