@@ -45,7 +45,7 @@
 #define UART huart2
 #define DMA hdma_usart2_rx
 /* Define the Size */
-#define RxBuf_SIZE 6
+#define RxBuf_SIZE 32
 #define TxBuf_SIZE 20
 #define MainBuf_SIZE 64
 // ---------------------------------UART--------------------------------- //
