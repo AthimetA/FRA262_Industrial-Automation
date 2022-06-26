@@ -46,7 +46,7 @@
 #define DMA hdma_usart2_rx
 #define RxBuf_SIZE 6
 #define TxBuf_SIZE 20
-#define MainBuf_SIZE 64
+#define MainBuf_SIZE 12
 // ---------------------------------UART--------------------------------- //
 // ---------------------------------I2C---------------------------------- //
 #define Endeff_ADDR 0x23<<1
@@ -114,8 +114,9 @@ static uint8_t RxBuf[RxBuf_SIZE];
 static uint8_t MainBuf[MainBuf_SIZE];
 static uint8_t TxBuf[TxBuf_SIZE];
 static uint8_t FlagAckFromUART = 0;
-uint16_t oldPos = 0;
-uint16_t newPos = 0;
+static uint8_t stateSwitch = 0;
+static uint16_t oldPos = 0;
+static uint16_t newPos = 0;
 uint16_t Head, Tail;
 /* Timeout is in milliseconds */
 int32_t TIMEOUT = 0;
@@ -228,10 +229,9 @@ static void MX_TIM3_Init(void);
 static void MX_TIM4_Init(void);
 /* USER CODE BEGIN PFP */
 uint64_t Micros();
-uint32_t PWMAbs(int32_t PWM);
+uint32_t Int32Abs(int32_t PWM);
 void Drivemotor(int32_t PWM);
 void EncoderRead();
-float AbsVal(float number);
 void ControllLoopAndErrorHandler();
 void I2CWriteFcn(uint8_t *Wdata);
 void I2CReadFcn(uint8_t *Rdata);
@@ -239,7 +239,7 @@ void RobotRunToPositon(float Destination);
 void TIM_ResetCounter(TIM_TypeDef* TIMx);
 void EndeffLaserOpen();
 void EndeffLaserReadStatus();
-void UARTstateManagement(uint8_t *Rxbuffer , uint16_t rxDataCurPos , uint16_t rxDataLastPos);
+void UARTstateManagement(uint8_t *Mainbuffer);
 void RobotstateManagement();
 void EndEffstateManagement();
 /* USER CODE END PFP */
@@ -764,7 +764,7 @@ void EncoderRead()
 	PositionDeg[1] = PositionDeg[0];
 }
 
-uint32_t PWMAbs(int32_t PWM)
+uint32_t Int32Abs(int32_t PWM)
 {
 	if(PWM<0){
 		return PWM*-1;
@@ -776,13 +776,13 @@ uint32_t PWMAbs(int32_t PWM)
 
 void Drivemotor(int32_t PWM){
 		if(PWM<=0 && PWM>=-PWM_MAX){
-			htim1.Instance->CCR1=PWMAbs(PWM);
+			htim1.Instance->CCR1=Int32Abs(PWM);
 			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9,0);
 		}else if (PWM<-PWM_MAX){
 			htim1.Instance->CCR1=PWM_MAX;
 			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9,0);
 		}else if(PWM>=0 && PWM<=PWM_MAX){
-			htim1.Instance->CCR1=PWMAbs(PWM);
+			htim1.Instance->CCR1=Int32Abs(PWM);
 			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9,1);
 		}else if(PWM>PWM_MAX){
 			htim1.Instance->CCR1=PWM_MAX;
@@ -879,14 +879,15 @@ void Ringbuf_Reset (void)
 	newPos = 0;
 }
 
-uint8_t checkSum (uint8_t *buffertoCheckSum , int bufferSize)
+uint8_t checkSum (uint8_t *buffertoCheckSum , uint16_t StartPos, uint16_t EndPos)
 {
 	uint8_t sum = 0;
+	uint16_t bufferSize = EndPos - StartPos;
 	for (int index = 0; index < bufferSize-1; ++index)
 	{
-		sum = sum + buffertoCheckSum[index];
+		sum = sum + buffertoCheckSum[StartPos+index];
 	}
-	if((uint8_t)(buffertoCheckSum[bufferSize-1])==(uint8_t)(~sum))
+	if((uint8_t)(buffertoCheckSum[bufferSize-1+StartPos])==(uint8_t)(~sum))
 	{
 		return 1;
 	}
@@ -914,37 +915,39 @@ uint8_t checkAck (uint8_t *buffertoCheckAck , uint16_t Size)
 
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 {
-		oldPos = newPos;  // Update the last position before copying new data
-
-		/* If the data in large and it is about to exceed the buffer size, we have to route it to the start of the buffer
-		 * This is to maintain the circular buffer
-		 * The old data in the main buffer will be overlapped
-		 */
-		if (oldPos+Size > MainBuf_SIZE)  // If the current position + new data size is greater than the main buffer
-		{
-			uint16_t datatocopy = MainBuf_SIZE-oldPos;  // find out how much space is left in the main buffer
-			memcpy ((uint8_t *)MainBuf+oldPos, (uint8_t *)RxBuf, datatocopy);  // copy data in that remaining space
-
-			oldPos = 0;  // point to the start of the buffer
-			memcpy ((uint8_t *)MainBuf, (uint8_t *)RxBuf+datatocopy, (Size-datatocopy));  // copy the remaining data
-			newPos = (Size-datatocopy);  // update the position
-		}
-
-		/* if the current position + new data size is less than the main buffer
-		 * we will simply copy the data into the buffer and update the position
-		 */
-		else
-		{
-			memcpy ((uint8_t *)MainBuf+oldPos, (uint8_t *)RxBuf, Size);
-			newPos = Size+oldPos;
-		}
-
+//		oldPos = newPos;  // Update the last position before copying new data
+//
+//		/* If the data in large and it is about to exceed the buffer size, we have to route it to the start of the buffer
+//		 * This is to maintain the circular buffer
+//		 * The old data in the main buffer will be overlapped
+//		 */
+//		if (oldPos+Size > MainBuf_SIZE)  // If the current position + new data size is greater than the main buffer
+//		{
+//			uint16_t datatocopy = MainBuf_SIZE-oldPos;  // find out how much space is left in the main buffer
+//			memcpy ((uint8_t *)MainBuf+oldPos, (uint8_t *)RxBuf, datatocopy);  // copy data in that remaining space
+//
+//			oldPos = 0;  // point to the start of the buffer
+//			memcpy ((uint8_t *)MainBuf, (uint8_t *)RxBuf+datatocopy, (Size-datatocopy));  // copy the remaining data
+//			newPos = (Size-datatocopy);  // update the position
+//		}
+//
+//		/* if the current position + new data size is less than the main buffer
+//		 * we will simply copy the data into the buffer and update the position
+//		 */
+//		else
+//		{
+//			memcpy ((uint8_t *)MainBuf+oldPos, (uint8_t *)RxBuf, Size);
+//			newPos = Size+oldPos;
+//		}
+		oldPos = 0;
+		newPos = Size;
+		memcpy ((uint8_t *)MainBuf, (uint8_t *)RxBuf, Size);
 		/* Update the position of the Head
 		 * If the current position + new size is less then the buffer size, Head will update normally
 		 * Or else the head will be at the new position from the beginning
 		 */
-		if (Head+Size < MainBuf_SIZE) Head = Head+Size;
-		else Head = Head+Size - MainBuf_SIZE;
+//		if (Head+Size < MainBuf_SIZE) Head = Head+Size;
+//		else Head = Head+Size - MainBuf_SIZE;
 
 		/* start the DMA again */
 		HAL_UARTEx_ReceiveToIdle_DMA(&UART, (uint8_t *) RxBuf, RxBuf_SIZE);
@@ -952,23 +955,22 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 
 
 	/****************** PROCESS (Little) THE DATA HERE *********************/
-		if(checkSum(RxBuf, newPos-oldPos) || checkAck(RxBuf, Size))
+		if(checkSum(MainBuf, oldPos, newPos))
 		{
-			UARTstateManagement(RxBuf,newPos,oldPos);
+			UARTstateManagement(MainBuf);
 		}
 }
 
-void UARTstateManagement(uint8_t *Rxbuffer , uint16_t rxDataCurPos , uint16_t rxDataLastPos)
+void UARTstateManagement(uint8_t *Mainbuffer)
 {
-	uint16_t rxDatalen = rxDataCurPos - rxDataLastPos;
-	static uint8_t stateSwitch = 0;
+	uint16_t rxDatalen = newPos - oldPos;
 	switch (UARTState)
 	{
 		case AwaitSethome:
 			// AFK Wait for Home calibration
 			break;
 		case MCDisCon:
-			if(Rxbuffer[0] == 0b10010010)
+			if(Mainbuffer[oldPos] == 0b10010010)
 			{
 				// Connect MC and Back to normal
 				modeNo = 2;
@@ -977,8 +979,9 @@ void UARTstateManagement(uint8_t *Rxbuffer , uint16_t rxDataCurPos , uint16_t rx
 			}
 			break;
 		case normOperation:
-			if((Rxbuffer[0] >> 4) == 0b1001) stateSwitch = Rxbuffer[0];
-			else break;
+			if((Mainbuffer[oldPos] >> 4) == 0b1001) stateSwitch = Mainbuffer[oldPos];
+			else stateSwitch = Mainbuffer[oldPos+2];
+//			stateSwitch = Mainbuffer[oldPos];
 			switch (stateSwitch)
 			{
 				// Mode 1 Test Command
@@ -1004,13 +1007,13 @@ void UARTstateManagement(uint8_t *Rxbuffer , uint16_t rxDataCurPos , uint16_t rx
 				// Mode 4 Set Angular Velocity
 				case 0b10010100:
 					modeNo = 4;
-					uartVelo = ((Rxbuffer[2])/255.0)*10.0;
+					uartVelo = ((Mainbuffer[2])/255.0)*10.0;
 					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
 					break;
 				// Mode 5 Set Angular Position
 				case 0b10010101:
 					modeNo = 5;
-					uartPos = (uint16_t)((((Rxbuffer[1] << 8) | Rxbuffer[2])*360.0)/62800);
+					uartPos = (uint16_t)((((Mainbuffer[1] << 8) | Mainbuffer[2])*360.0)/62800);
 					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
 					break;
 				// Mode 6
@@ -1018,17 +1021,17 @@ void UARTstateManagement(uint8_t *Rxbuffer , uint16_t rxDataCurPos , uint16_t rx
 					modeNo = 6;
 					memset(uartGoal, 0, 15);
 					goalAmount = 1;
-					uartGoal[0] = Rxbuffer[2];
+					uartGoal[0] = Mainbuffer[2];
 					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
 					break;
 				// Mode 7
 				case 0b10010111:
 					modeNo = 7;
 					memset(uartGoal, 0, 15);
-					goalAmount = Rxbuffer[1];
+					goalAmount = Mainbuffer[1];
 					for(int i = 0; i < ((goalAmount+1)/2); i++){
-						uartGoal[0+(i*2)] = Rxbuffer[(2+i)] & 15; // low 8 bit (last 4 bit)
-						uartGoal[1+(i*2)] = Rxbuffer[(2+i)] >> 4; // high 8 bit (first 4 bit)
+						uartGoal[0+(i*2)] = Mainbuffer[(2+i)] & 15; // low 8 bit (last 4 bit)
+						uartGoal[1+(i*2)] = Mainbuffer[(2+i)] >> 4; // high 8 bit (first 4 bit)
 					}
 					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
 					break;
