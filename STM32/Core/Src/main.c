@@ -44,20 +44,24 @@
 // ---------------------------------UART--------------------------------- //
 #define UART huart2
 #define DMA hdma_usart2_rx
-/* Define the Size */
-#define RxBuf_SIZE 32
+#define RxBuf_SIZE 6
 #define TxBuf_SIZE 20
 #define MainBuf_SIZE 64
 // ---------------------------------UART--------------------------------- //
 // ---------------------------------I2C---------------------------------- //
 #define Endeff_ADDR 0x23<<1
 #define Endeff_TEST 0x45
+#define EndEffRxBuf_SIZE 1
+#define EndEffTxBuf_SIZE 1
+#define I2CRxDataLen 1
+#define I2CTxDataLen 1
 // ---------------------------------I2C---------------------------------- //
 // ---------------------------------Kalman------------------------------- //
 #define dt  0.001f
-#define testDes 90.0f
 #define Kalmanvar  250000.0f
 #define Pvar  1000.0f
+// ---------------------------------Kalman------------------------------- //
+// ---------------------------------PID---------------------------------- //
 #define PID_KP  10.0f
 #define PID_KI  0.0000001f
 #define PID_KD  0.000596100527203305f
@@ -67,15 +71,8 @@
 #define PID_LIM_MIN_INT -10000.0f
 #define PID_LIM_MAX_INT  10000.0f
 /* PWM MAX parameters */
-#define AMAX 28.65f
-#define JMAX 573.0f
-/* PWM MAX parameters */
 #define PWM_MAX 10000
-
-#define EndEffRxBuf_SIZE 1
-#define EndEffTxBuf_SIZE 1
-#define I2CRxDataLen 1
-#define I2CTxDataLen 1
+// ---------------------------------PID---------------------------------- //
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -97,26 +94,10 @@ DMA_HandleTypeDef hdma_usart2_rx;
 DMA_HandleTypeDef hdma_usart2_tx;
 
 /* USER CODE BEGIN PV */
-//Main Robot
+// ---------------------------------MainRobot---------------------------------- //
 RobotManagement Robot;
 uint8_t homeFF = 0;
 static float homePoint[2] = {0};
-// ---------------------------------UART--------------------------------- //
-static uint8_t RxBuf[RxBuf_SIZE];
-static uint8_t MainBuf[MainBuf_SIZE];
-static uint8_t TxBuf[TxBuf_SIZE];
-static uint8_t FlagAckFromUART = 0;
-
-uint16_t oldPos = 0;
-uint16_t newPos = 0;
-uint16_t Head, Tail;
-
-/* Timeout is in milliseconds */
-int32_t TIMEOUT = 0;
-
-uint8_t ACK_1[2] = { 0x58, 0b01110101 };
-uint8_t ACK_2[2] = { 70, 0b01101110 };
-
 // normOperation(MCCon) = MotorOn, EndEff On
 // emergency = MotorOff, EndEff Off
 // MCDisCon = MotorOff, EndEff Off
@@ -127,15 +108,24 @@ enum{init, FindHome , NormM, EndEff, emergency} RobotState = init;
 // EndEff State
 enum{idle,CheckBeforRun,OpenLaser,SetupReadStatus,ReadStatus} EndEffState = idle;
 enum{Opening,Closing,Working,AwaitCommand} EndEffStatus = AwaitCommand;
+// ---------------------------------MainRobot---------------------------------- //
+// ---------------------------------UART--------------------------------- //
+static uint8_t RxBuf[RxBuf_SIZE];
+static uint8_t MainBuf[MainBuf_SIZE];
+static uint8_t TxBuf[TxBuf_SIZE];
+static uint8_t FlagAckFromUART = 0;
+uint16_t oldPos = 0;
+uint16_t newPos = 0;
+uint16_t Head, Tail;
+/* Timeout is in milliseconds */
+int32_t TIMEOUT = 0;
+uint8_t ACK_1[2] = { 0x58, 0b01110101 };
+uint8_t ACK_2[2] = { 70, 0b01101110 };
 // Data Buffer
  uint8_t sendData[6] = {0};
-
  //for sending data to base sys
- uint8_t goalData = 0;
- uint16_t posData = 0; //(max 16000)
- uint16_t veloData = 0; //(max 16000)
- // -------
-
+ uint16_t posData = 0;
+ uint16_t veloData = 0;
  uint16_t uartVelo = 0;
  uint16_t uartPos = 0;
  uint8_t uartGoal[15];
@@ -144,10 +134,9 @@ enum{Opening,Closing,Working,AwaitCommand} EndEffStatus = AwaitCommand;
  uint8_t homingFlag = 0;
  uint8_t endEffFlag = 0;
  uint8_t modeNo = 0;
-
  uint64_t timeElapsed = 0;
  // ---------------------------------UART--------------------------------- //
- // ---------------------------------CTRL---------------------------------
+ // ---------------------------------CTRL--------------------------------- //
 /* Setup Microsec */
 uint64_t _micro = 0;
 /* Setup EncoderData */
@@ -216,12 +205,14 @@ static uint64_t CurrentTime =0;
 static uint64_t CheckLoopStartTime =0;
 static uint64_t CheckLoopStopTime =0;
 static uint64_t CheckLoopDiffTime =0;
+// ---------------------------------CTRL--------------------------------- //
+// ---------------------------------I2C---------------------------------- //
 static uint8_t btncheck = 0;
 uint8_t I2CEndEffectorReadFlag = 0;
 uint8_t I2CEndEffectorWriteFlag = 0;
 static uint8_t I2CRxDataBuffer[EndEffRxBuf_SIZE] ={0};
 static uint8_t I2CTxDataBuffer[EndEffTxBuf_SIZE] ={0};
-
+// ---------------------------------I2C---------------------------------- //
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -248,7 +239,6 @@ void RobotRunToPositon(float Destination);
 void TIM_ResetCounter(TIM_TypeDef* TIMx);
 void EndeffLaserOpen();
 void EndeffLaserReadStatus();
-
 void UARTstateManagement(uint8_t *Rxbuffer , uint16_t rxDataCurPos , uint16_t rxDataLastPos);
 void RobotstateManagement();
 void EndEffstateManagement();
@@ -312,8 +302,6 @@ int main(void)
   PositionRaw=EncoderRawData[0];
   PIDVelocityController_Init(&PidVelo);
   PIDVelocityController_Init(&PidPos);
-
-  btncheck = 0;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -1057,19 +1045,19 @@ void UARTstateManagement(uint8_t *Rxbuffer , uint16_t rxDataCurPos , uint16_t rx
 				case 0b10011001:
 					modeNo = 9;
 					FlagAckFromUART = 0;
-					goalData = 0;
+					Robot.CurrentStation = 0;
 					if(Robot.RunningFlag == 1){
 						memcpy(sendData, ACK_1, 2);
 						sendData[2] = 153; // start-mode
 						sendData[3] = 0;
-						sendData[4] = goalData; // set current goal
+						sendData[4] = Robot.CurrentStation; // set current goal
 						sendData[5] = (uint8_t)(~(sendData[2]+sendData[3]+sendData[4]));
 					}
 					else{
 						memcpy(sendData, ACK_2, 2);
 						sendData[2] = 153; // start-mode
 						sendData[3] = 0;
-						sendData[4] = goalData; // set current goal
+						sendData[4] = Robot.CurrentStation; // set current goal
 						sendData[5] = (uint8_t)(~(sendData[2]+sendData[3]+sendData[4]));
 					}
 					HAL_UART_Transmit_DMA(&UART, sendData, 6);
@@ -1203,27 +1191,14 @@ void I2CWriteFcn(uint8_t *Wdata) {
 		static uint8_t data[EndEffRxBuf_SIZE];
 		memcpy ((uint8_t *)data, (uint8_t *)Wdata, EndEffRxBuf_SIZE);
 		HAL_I2C_Master_Transmit_IT(&hi2c1, Endeff_ADDR, data, I2CTxDataLen);
-//		HAL_I2C_Mem_Write_IT(&hi2c1, DevAddress, MemAddress, MemAddSize, pData, Size);
 		I2CEndEffectorWriteFlag = 0;
 	}
 }
 void I2CReadFcn(uint8_t *Rdata) {
 	if (I2CEndEffectorReadFlag == 1 && hi2c1.State == HAL_I2C_STATE_READY) {
-		static uint8_t Regis = 0x23;
-//		HAL_I2C_Mem_Read_IT(&hi2c1, Endeff_ADDR, Regis, I2C_MEMADD_SIZE_8BIT, Rdata, I2CRxDataLen);
 		HAL_I2C_Master_Receive_IT(&hi2c1, Endeff_ADDR, Rdata, I2CRxDataLen);
 		I2CEndEffectorReadFlag =  0;
 	}
-}
-
-void HAL_I2C_MasterTxCpltCallback(I2C_HandleTypeDef *hi2c)
-{
-	I2CEndEffectorWriteFlag = 2;
-}
-
-void HAL_I2C_MasterRxCpltCallback(I2C_HandleTypeDef *hi2c)
-{
-	I2CEndEffectorReadFlag =  2;
 }
 
 void EndEffstateManagement()
@@ -1318,15 +1293,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 		I2CEndEffectorWriteFlag = 1;
 		I2CEndEffectorReadFlag =  1;
 		EndEffState = CheckBeforRun;
-//		btncheck++;
-//		EndeffLaserOpen();
-//		I2CWriteFcn(0x23,8,Endeff_ADDR);
-//		I2CRxDataLen = 1;
-//		I2CRxDataBuffer[0] = 0x45;
-//		I2CEndEffectorWriteFlag = 1;
-//		I2CWriteFcn(I2CRxDataBuffer,I2CRxDataLen,Endeff_ADDR);
-//		HAL_I2C_Master_Transmit_IT(&hi2c1, Endeff_ADDR, 0b01000101, 1);
-//		HAL_I2C_Mem_Write_IT(&hi2c1, Endeff_ADDR, Endeff_TEST, I2C_MEMADD_SIZE_16BIT, pData, Size);
 	}
 	if(GPIO_Pin == GPIO_PIN_10)
 	{
