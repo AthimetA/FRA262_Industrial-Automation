@@ -85,8 +85,6 @@
 
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
-TIM_HandleTypeDef htim3;
-TIM_HandleTypeDef htim4;
 TIM_HandleTypeDef htim11;
 
 UART_HandleTypeDef huart2;
@@ -118,6 +116,7 @@ static uint8_t stateSwitch = 0;
 static uint16_t oldPos = 0;
 static uint16_t newPos = 0;
 uint16_t Head, Tail;
+uint16_t dataSize =0;
 /* Timeout is in milliseconds */
 int32_t TIMEOUT = 0;
 uint8_t ACK_1[2] = { 0x58, 0b01110101 };
@@ -139,6 +138,7 @@ uint8_t ACK_2[2] = { 70, 0b01101110 };
  // ---------------------------------UART--------------------------------- //
  // ---------------------------------CTRL--------------------------------- //
 /* Setup Microsec */
+uint64_t ControlLoopTime = 0;
 uint64_t _micro = 0;
 /* Setup EncoderData */
 int EncoderRawData[2] = {0};
@@ -225,8 +225,6 @@ static void MX_I2C1_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_TIM11_Init(void);
 static void MX_TIM2_Init(void);
-static void MX_TIM3_Init(void);
-static void MX_TIM4_Init(void);
 /* USER CODE BEGIN PFP */
 uint64_t Micros();
 uint32_t Int32Abs(int32_t PWM);
@@ -283,8 +281,6 @@ int main(void)
   MX_TIM1_Init();
   MX_TIM11_Init();
   MX_TIM2_Init();
-  MX_TIM3_Init();
-  MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
   //----UART-----//
   Ringbuf_Init();
@@ -294,8 +290,6 @@ int main(void)
   //////////////////////////
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
   HAL_TIM_Base_Start_IT (&htim11);
-  HAL_TIM_Base_Start_IT (&htim3);
-  HAL_TIM_Base_Start_IT (&htim4);
   HAL_TIM_Encoder_Start(&htim2, TIM_CHANNEL_ALL);
   EncoderRawData[0]=TIM2->CNT;
   EncoderRawData[1]=EncoderRawData[0];
@@ -310,6 +304,20 @@ int main(void)
   {
 	  RobotstateManagement();
 	  EndEffstateManagement();
+	  if(Micros() - ControlLoopTime >= 1000)
+	  {
+		ControlLoopTime  = Micros();
+		CheckLoopStartTime = Micros();
+		EncoderRead();
+		KalmanFilterFunction(&KalmanVar,PositionDeg[0]);
+//		KalmanFilterFunction(&KalmanVar,VelocityDeg);
+		Robot.Position = PositionDeg[0];
+		Robot.Velocity = KalmanVar.MatState_Data[1];
+		ControllLoopAndErrorHandler();
+		CheckLoopStopTime = Micros();
+		CheckLoopStopTime = Micros();
+		CheckLoopDiffTime = CheckLoopStopTime - CheckLoopStartTime;
+	  }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -508,96 +516,6 @@ static void MX_TIM2_Init(void)
   /* USER CODE BEGIN TIM2_Init 2 */
 
   /* USER CODE END TIM2_Init 2 */
-
-}
-
-/**
-  * @brief TIM3 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_TIM3_Init(void)
-{
-
-  /* USER CODE BEGIN TIM3_Init 0 */
-
-  /* USER CODE END TIM3_Init 0 */
-
-  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
-  TIM_MasterConfigTypeDef sMasterConfig = {0};
-
-  /* USER CODE BEGIN TIM3_Init 1 */
-
-  /* USER CODE END TIM3_Init 1 */
-  htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 9;
-  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 9999;
-  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN TIM3_Init 2 */
-
-  /* USER CODE END TIM3_Init 2 */
-
-}
-
-/**
-  * @brief TIM4 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_TIM4_Init(void)
-{
-
-  /* USER CODE BEGIN TIM4_Init 0 */
-
-  /* USER CODE END TIM4_Init 0 */
-
-  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
-  TIM_MasterConfigTypeDef sMasterConfig = {0};
-
-  /* USER CODE BEGIN TIM4_Init 1 */
-
-  /* USER CODE END TIM4_Init 1 */
-  htim4.Instance = TIM4;
-  htim4.Init.Prescaler = 9;
-  htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim4.Init.Period = 9999;
-  htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim4, &sClockSourceConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim4, &sMasterConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN TIM4_Init 2 */
-
-  /* USER CODE END TIM4_Init 2 */
 
 }
 
@@ -833,21 +751,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	if (htim == &htim11) {
 		_micro += 65535;
 	}
-	else if (htim == &htim3) {
-		CheckLoopStartTime = Micros();
-		EncoderRead();
-		KalmanFilterFunction(&KalmanVar,PositionDeg[0]);
-//		KalmanFilterFunction(&KalmanVar,VelocityDeg);
-		Robot.Position = PositionDeg[0];
-		Robot.Velocity = KalmanVar.MatState_Data[1];
-		ControllLoopAndErrorHandler();
-		CheckLoopStopTime = Micros();
-		CheckLoopStopTime = Micros();
-		CheckLoopDiffTime = CheckLoopStopTime - CheckLoopStartTime;
-	}
-	else if (htim == &htim4) {
-
-		}
 }
 
 uint64_t Micros(){
@@ -934,50 +837,31 @@ uint8_t checkSum (uint8_t *buffertoCheckSum , uint16_t StartPos, uint16_t EndPos
 
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 {
-		oldPos = newPos;  // Update the last position before copying new data
+        if (huart->Instance == USART2)
+        {
+                oldPos = newPos;
+                dataSize = Size;
+                if (oldPos+dataSize > MainBuf_SIZE)
+                {
+                        oldPos = 0;
+                        memcpy ((uint8_t *)MainBuf+oldPos, (uint8_t *)RxBuf, dataSize);
+                        newPos = dataSize+oldPos;
+                }
+                else
+                {
+                        memcpy ((uint8_t *)MainBuf+oldPos, (uint8_t *)RxBuf, dataSize);
+                        newPos = dataSize+oldPos;
+                }
 
-		/* If the data in large and it is about to exceed the buffer size, we have to route it to the start of the buffer
-		 * This is to maintain the circular buffer
-		 * The old data in the main buffer will be overlapped
-		 */
-		if (oldPos+Size > MainBuf_SIZE)  // If the current position + new data size is greater than the main buffer
-		{
-			uint16_t datatocopy = MainBuf_SIZE-oldPos;  // find out how much space is left in the main buffer
-			memcpy ((uint8_t *)MainBuf+oldPos, (uint8_t *)RxBuf, datatocopy);  // copy data in that remaining space
+                if(checkSum(MainBuf, oldPos, newPos, dataSize))
+                {
+                        UARTstateManagement(MainBuf);
+                }
 
-			oldPos = 0;  // point to the start of the buffer
-			memcpy ((uint8_t *)MainBuf, (uint8_t *)RxBuf+datatocopy, (Size-datatocopy));  // copy the remaining data
-			newPos = (Size-datatocopy);  // update the position
-		}
-
-		/* if the current position + new data size is less than the main buffer
-		 * we will simply copy the data into the buffer and update the position
-		 */
-		else
-		{
-			memcpy ((uint8_t *)MainBuf+oldPos, (uint8_t *)RxBuf, Size);
-			newPos = Size+oldPos;
-		}
-//		oldPos = 0;
-//		newPos = Size;
-//		memcpy ((uint8_t *)MainBuf, (uint8_t *)RxBuf, Size);
-		/* Update the position of the Head
-		 * If the current position + new size is less then the buffer size, Head will update normally
-		 * Or else the head will be at the new position from the beginning
-		 */
-		if (Head+Size < MainBuf_SIZE) Head = Head+Size;
-		else Head = Head+Size - MainBuf_SIZE;
-
-		/* start the DMA again */
-		HAL_UARTEx_ReceiveToIdle_DMA(&UART, (uint8_t *) RxBuf, RxBuf_SIZE);
-		__HAL_DMA_DISABLE_IT(&DMA, DMA_IT_HT);
-
-
-	/****************** PROCESS (Little) THE DATA HERE *********************/
-		if(checkSum(MainBuf, oldPos, newPos, Size))
-		{
-			UARTstateManagement(MainBuf);
-		}
+                /* start the DMA again */
+                HAL_UARTEx_ReceiveToIdle_DMA(&UART, (uint8_t *) RxBuf, RxBuf_SIZE);
+                __HAL_DMA_DISABLE_IT(&DMA, DMA_IT_HT);
+        }
 }
 
 void UARTstateManagement(uint8_t *Mainbuffer)
