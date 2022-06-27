@@ -999,7 +999,7 @@ void UARTstateManagement(uint8_t *Mainbuffer)
 			break;
 		case normOperation:
 			if((Mainbuffer[oldPos] >> 4) == 0b1001) stateSwitch = Mainbuffer[oldPos];
-			else stateSwitch = Mainbuffer[oldPos+2];
+			else stateSwitch = Mainbuffer[oldPos+2 % MainBuf_SIZE];
 //			stateSwitch = Mainbuffer[oldPos];
 			switch (stateSwitch)
 			{
@@ -1026,13 +1026,13 @@ void UARTstateManagement(uint8_t *Mainbuffer)
 				// Mode 4 Set Angular Velocity
 				case 0b10010100:
 					modeNo = 4;
-					uartVelo = ((Mainbuffer[2])/255.0)*10.0;
+					uartVelo = ((Mainbuffer[oldPos + 2 % MainBuf_SIZE])/255.0)*10.0;
 					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
 					break;
 				// Mode 5 Set Angular Position
 				case 0b10010101:
 					modeNo = 5;
-					uartPos = (uint16_t)((((Mainbuffer[1] << 8) | Mainbuffer[2])*360.0)/62800);
+					uartPos = (uint16_t)((((Mainbuffer[oldPos + 1 % MainBuf_SIZE] << 8) | Mainbuffer[oldPos + 2 % MainBuf_SIZE])*360.0)/62800);
 					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
 					break;
 				// Mode 6
@@ -1040,17 +1040,17 @@ void UARTstateManagement(uint8_t *Mainbuffer)
 					modeNo = 6;
 					memset(uartGoal, 0, 15);
 					goalAmount = 1;
-					uartGoal[0] = Mainbuffer[2];
+					uartGoal[0] = Mainbuffer[oldPos + 2 % MainBuf_SIZE];
 					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
 					break;
 				// Mode 7
 				case 0b10010111:
 					modeNo = 7;
 					memset(uartGoal, 0, 15);
-					goalAmount = Mainbuffer[1];
+					goalAmount = Mainbuffer[oldPos + 1 % MainBuf_SIZE];
 					for(int i = 0; i < ((goalAmount+1)/2); i++){
-						uartGoal[0+(i*2)] = Mainbuffer[(2+i)] & 15; // low 8 bit (last 4 bit)
-						uartGoal[1+(i*2)] = Mainbuffer[(2+i)] >> 4; // high 8 bit (first 4 bit)
+						uartGoal[0+(i*2)] = Mainbuffer[oldPos + (2+i) % MainBuf_SIZE] & 15; // low 8 bit (last 4 bit)
+						uartGoal[1+(i*2)] = Mainbuffer[oldPos + (2+i) % MainBuf_SIZE] >> 4; // high 8 bit (first 4 bit)
 					}
 					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
 					break;
