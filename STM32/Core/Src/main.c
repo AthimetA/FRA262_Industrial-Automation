@@ -101,7 +101,7 @@ static float homePoint[2] = {0};
 // normOperation(MCCon) = MotorOn, EndEff On
 // emergency = MotorOff, EndEff Off
 // MCDisCon = MotorOff, EndEff Off
-enum{AwaitSethome,MCDisCon ,normOperation} UARTState = AwaitSetHome;
+enum{AwaitSethome,MCDisCon ,normOperation} UARTState = AwaitSethome;
 // idle = MotorOn, EndEff On(Do nothing)
 // EndEff = MotorOn(PWM=0), EndEff On(Send Something and Shoot Laser)(LED On)
 enum{init, FindHome , NormM, EndEff, emergency} RobotState = init;
