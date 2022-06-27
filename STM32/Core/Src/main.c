@@ -44,9 +44,9 @@
 // ---------------------------------UART--------------------------------- //
 #define UART huart2
 #define DMA hdma_usart2_rx
-#define RxBuf_SIZE 6
+#define RxBuf_SIZE 20
 #define TxBuf_SIZE 20
-#define MainBuf_SIZE 12
+#define MainBuf_SIZE 40
 // ---------------------------------UART--------------------------------- //
 // ---------------------------------I2C---------------------------------- //
 #define Endeff_ADDR 0x23<<1
@@ -101,7 +101,7 @@ static float homePoint[2] = {0};
 // normOperation(MCCon) = MotorOn, EndEff On
 // emergency = MotorOff, EndEff Off
 // MCDisCon = MotorOff, EndEff Off
-enum{AwaitSethome,MCDisCon ,normOperation} UARTState = AwaitSethome;
+enum{AwaitSethome,MCDisCon ,normOperation} UARTState = AwaitSetHome;
 // idle = MotorOn, EndEff On(Do nothing)
 // EndEff = MotorOn(PWM=0), EndEff On(Send Something and Shoot Laser)(LED On)
 enum{init, FindHome , NormM, EndEff, emergency} RobotState = init;
@@ -879,15 +879,34 @@ void Ringbuf_Reset (void)
 	newPos = 0;
 }
 
-uint8_t checkSum (uint8_t *buffertoCheckSum , uint16_t StartPos, uint16_t EndPos)
+uint8_t checkSum (uint8_t *buffertoCheckSum , uint16_t StartPos, uint16_t EndPos, uint16_t Size)
 {
 	uint8_t sum = 0;
-	uint16_t bufferSize = EndPos - StartPos;
-	for (int index = 0; index < bufferSize-1; ++index)
-	{
-		sum = sum + buffertoCheckSum[StartPos+index];
+//	uint16_t bufferSize = EndPos - StartPos;
+	switch(Size){
+	case 1:
+	case 3:
+		break;
+	case 2:
+		if((buffertoCheckSum[StartPos] == 0b01011000) && (buffertoCheckSum[StartPos+1 % MainBuf_SIZE] == 0b01110101)){
+			return 1;
+		}
+		else sum = buffertoCheckSum[StartPos];
+		break;
+	case 4:
+		if((buffertoCheckSum[StartPos] == 0b01011000) && (buffertoCheckSum[StartPos+1 % MainBuf_SIZE] == 0b01110101)){
+			sum = buffertoCheckSum[StartPos+2 % MainBuf_SIZE];
+		}
+		else sum = buffertoCheckSum[StartPos] + buffertoCheckSum[StartPos+1 % MainBuf_SIZE] + buffertoCheckSum[StartPos+2 % MainBuf_SIZE];
+		break;
+	default:
+		for (int index = 0; index < Size-1; ++index)
+		{
+			sum = sum + buffertoCheckSum[StartPos+index % MainBuf_SIZE];
+		}
 	}
-	if((uint8_t)(buffertoCheckSum[bufferSize-1+StartPos])==(uint8_t)(~sum))
+
+	if((uint8_t)(buffertoCheckSum[StartPos+ (Size-1) % MainBuf_SIZE])==(uint8_t)(~sum))
 	{
 		return 1;
 	}
@@ -897,57 +916,57 @@ uint8_t checkSum (uint8_t *buffertoCheckSum , uint16_t StartPos, uint16_t EndPos
 	}
 }
 
-uint8_t checkAck (uint8_t *buffertoCheckAck , uint16_t Size)
-{
-	for (int i=0; i < Size; i++)
-	{
-		if ((RxBuf[i] == 0b01011000) && (RxBuf[i+1] == 0b01110101))
-		{
-			return 1;
-		}
-		else
-		{
-			return 0;
-		}
-	}
-	return 2;
-}
+//uint8_t checkAck (uint8_t *buffertoCheckAck , uint16_t StartPos, uint16_t EndPos, uint16_t Size)
+//{
+//	for (int i=0; i < Size; i++)
+//	{
+//		if ((RxBuf[i] == 0b01011000) && (RxBuf[i+1] == 0b01110101))
+//		{
+//			return checkSum(MainBuf, oldPos, newPos, Size);
+//		}
+//		else
+//		{
+//			return checkSum(MainBuf, oldPos, newPos, Size);
+//		}
+//	}
+//	return 2;
+//}
 
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 {
-//		oldPos = newPos;  // Update the last position before copying new data
-//
-//		/* If the data in large and it is about to exceed the buffer size, we have to route it to the start of the buffer
-//		 * This is to maintain the circular buffer
-//		 * The old data in the main buffer will be overlapped
-//		 */
-//		if (oldPos+Size > MainBuf_SIZE)  // If the current position + new data size is greater than the main buffer
-//		{
-//			uint16_t datatocopy = MainBuf_SIZE-oldPos;  // find out how much space is left in the main buffer
-//			memcpy ((uint8_t *)MainBuf+oldPos, (uint8_t *)RxBuf, datatocopy);  // copy data in that remaining space
-//
-//			oldPos = 0;  // point to the start of the buffer
-//			memcpy ((uint8_t *)MainBuf, (uint8_t *)RxBuf+datatocopy, (Size-datatocopy));  // copy the remaining data
-//			newPos = (Size-datatocopy);  // update the position
-//		}
-//
-//		/* if the current position + new data size is less than the main buffer
-//		 * we will simply copy the data into the buffer and update the position
-//		 */
-//		else
-//		{
-//			memcpy ((uint8_t *)MainBuf+oldPos, (uint8_t *)RxBuf, Size);
-//			newPos = Size+oldPos;
-//		}
-		oldPos = 0;
-		newPos = Size;
-		memcpy ((uint8_t *)MainBuf, (uint8_t *)RxBuf, Size);
+		oldPos = newPos;  // Update the last position before copying new data
+
+		/* If the data in large and it is about to exceed the buffer size, we have to route it to the start of the buffer
+		 * This is to maintain the circular buffer
+		 * The old data in the main buffer will be overlapped
+		 */
+		if (oldPos+Size > MainBuf_SIZE)  // If the current position + new data size is greater than the main buffer
+		{
+			uint16_t datatocopy = MainBuf_SIZE-oldPos;  // find out how much space is left in the main buffer
+			memcpy ((uint8_t *)MainBuf+oldPos, (uint8_t *)RxBuf, datatocopy);  // copy data in that remaining space
+
+			oldPos = 0;  // point to the start of the buffer
+			memcpy ((uint8_t *)MainBuf, (uint8_t *)RxBuf+datatocopy, (Size-datatocopy));  // copy the remaining data
+			newPos = (Size-datatocopy);  // update the position
+		}
+
+		/* if the current position + new data size is less than the main buffer
+		 * we will simply copy the data into the buffer and update the position
+		 */
+		else
+		{
+			memcpy ((uint8_t *)MainBuf+oldPos, (uint8_t *)RxBuf, Size);
+			newPos = Size+oldPos;
+		}
+//		oldPos = 0;
+//		newPos = Size;
+//		memcpy ((uint8_t *)MainBuf, (uint8_t *)RxBuf, Size);
 		/* Update the position of the Head
 		 * If the current position + new size is less then the buffer size, Head will update normally
 		 * Or else the head will be at the new position from the beginning
 		 */
-//		if (Head+Size < MainBuf_SIZE) Head = Head+Size;
-//		else Head = Head+Size - MainBuf_SIZE;
+		if (Head+Size < MainBuf_SIZE) Head = Head+Size;
+		else Head = Head+Size - MainBuf_SIZE;
 
 		/* start the DMA again */
 		HAL_UARTEx_ReceiveToIdle_DMA(&UART, (uint8_t *) RxBuf, RxBuf_SIZE);
@@ -955,7 +974,7 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 
 
 	/****************** PROCESS (Little) THE DATA HERE *********************/
-		if(checkSum(MainBuf, oldPos, newPos))
+		if(checkSum(MainBuf, oldPos, newPos, Size))
 		{
 			UARTstateManagement(MainBuf);
 		}

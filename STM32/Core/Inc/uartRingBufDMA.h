@@ -19,7 +19,7 @@ void Ringbuf_Init (void);
  * */
 void Ringbuf_Reset (void);
 
-uint8_t checkSum (uint8_t *buffertoCheckSum , uint16_t StartPos, uint16_t EndPos);
+uint8_t checkSum (uint8_t *buffertoCheckSum , uint16_t StartPos, uint16_t EndPos, uint16_t Size);
 
 
 #endif /* INC_UARTRINGBUFDMA_H_ */
