@@ -85,6 +85,8 @@
 
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
+TIM_HandleTypeDef htim3;
+TIM_HandleTypeDef htim4;
 TIM_HandleTypeDef htim11;
 
 UART_HandleTypeDef huart2;
@@ -134,7 +136,12 @@ uint8_t ACK_2[2] = { 70, 0b01101110 };
  uint8_t homingFlag = 0;
  uint8_t endEffFlag = 0;
  uint8_t modeNo = 0;
+ uint8_t modeByte = 0;
  uint64_t timeElapsed = 0;
+
+ uint8_t errorUARTDATA[6];
+ uint8_t sizeErrorFlag = 0;
+ uint8_t sizeErrorCount = 0;
  // ---------------------------------UART--------------------------------- //
  // ---------------------------------CTRL--------------------------------- //
 /* Setup Microsec */
@@ -225,6 +232,8 @@ static void MX_I2C1_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_TIM11_Init(void);
 static void MX_TIM2_Init(void);
+static void MX_TIM3_Init(void);
+static void MX_TIM4_Init(void);
 /* USER CODE BEGIN PFP */
 uint64_t Micros();
 uint32_t Int32Abs(int32_t PWM);
@@ -281,6 +290,8 @@ int main(void)
   MX_TIM1_Init();
   MX_TIM11_Init();
   MX_TIM2_Init();
+  MX_TIM3_Init();
+  MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
   //----UART-----//
   Ringbuf_Init();
@@ -296,6 +307,9 @@ int main(void)
   PositionRaw=EncoderRawData[0];
   PIDVelocityController_Init(&PidVelo);
   PIDVelocityController_Init(&PidPos);
+
+  UARTState = normOperation;
+  RobotState = NormM;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -342,12 +356,11 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
-  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
-  RCC_OscInitStruct.PLL.PLLM = 8;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLM = 4;
   RCC_OscInitStruct.PLL.PLLN = 100;
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
   RCC_OscInitStruct.PLL.PLLQ = 4;
@@ -516,6 +529,96 @@ static void MX_TIM2_Init(void)
   /* USER CODE BEGIN TIM2_Init 2 */
 
   /* USER CODE END TIM2_Init 2 */
+
+}
+
+/**
+  * @brief TIM3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM3_Init(void)
+{
+
+  /* USER CODE BEGIN TIM3_Init 0 */
+
+  /* USER CODE END TIM3_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM3_Init 1 */
+
+  /* USER CODE END TIM3_Init 1 */
+  htim3.Instance = TIM3;
+  htim3.Init.Prescaler = 9;
+  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim3.Init.Period = 9999;
+  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM3_Init 2 */
+
+  /* USER CODE END TIM3_Init 2 */
+
+}
+
+/**
+  * @brief TIM4 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM4_Init(void)
+{
+
+  /* USER CODE BEGIN TIM4_Init 0 */
+
+  /* USER CODE END TIM4_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM4_Init 1 */
+
+  /* USER CODE END TIM4_Init 1 */
+  htim4.Instance = TIM4;
+  htim4.Init.Prescaler = 9;
+  htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim4.Init.Period = 9999;
+  htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim4, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim4, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM4_Init 2 */
+
+  /* USER CODE END TIM4_Init 2 */
 
 }
 
@@ -782,58 +885,45 @@ void Ringbuf_Reset (void)
 	newPos = 0;
 }
 
-uint8_t checkSum (uint8_t *buffertoCheckSum , uint16_t StartPos, uint16_t EndPos, uint16_t Size)
+void checkSum (uint8_t *buffertoCheckSum, uint16_t Size)
 {
 	uint8_t sum = 0;
-//	uint16_t bufferSize = EndPos - StartPos;
+	modeByte = 0;
 	switch(Size){
 	case 1:
 	case 3:
+		memset(errorUARTDATA,0x00,6);
+		memcpy(errorUARTDATA, RxBuf, Size);
+		errorUARTDATA[4] = newPos;
+		errorUARTDATA[5] = oldPos;
+		sizeErrorFlag = Size;
 		break;
 	case 2:
-		if((buffertoCheckSum[StartPos] == 0b01011000) && (buffertoCheckSum[StartPos+1 % MainBuf_SIZE] == 0b01110101)){
-			return 1;
-		}
-		else sum = buffertoCheckSum[StartPos];
+		if(!(checkAck(buffertoCheckSum, Size))) modeByte = sum = buffertoCheckSum[oldPos];
 		break;
 	case 4:
-		if((buffertoCheckSum[StartPos] == 0b01011000) && (buffertoCheckSum[StartPos+1 % MainBuf_SIZE] == 0b01110101)){
-			sum = buffertoCheckSum[StartPos+2 % MainBuf_SIZE];
+		if(checkAck(buffertoCheckSum, Size)) modeByte = sum = buffertoCheckSum[oldPos+2 % MainBuf_SIZE];
+		else{
+			sum = buffertoCheckSum[oldPos] + buffertoCheckSum[oldPos+1 % MainBuf_SIZE] + buffertoCheckSum[oldPos+2 % MainBuf_SIZE];
+			modeByte = buffertoCheckSum[oldPos];
 		}
-		else sum = buffertoCheckSum[StartPos] + buffertoCheckSum[StartPos+1 % MainBuf_SIZE] + buffertoCheckSum[StartPos+2 % MainBuf_SIZE];
 		break;
 	default:
+		modeByte = buffertoCheckSum[oldPos];
 		for (int index = 0; index < Size-1; ++index)
 		{
-			sum = sum + buffertoCheckSum[StartPos+index % MainBuf_SIZE];
+			sum = sum + buffertoCheckSum[oldPos+index % MainBuf_SIZE];
 		}
 	}
 
-	if((uint8_t)(buffertoCheckSum[StartPos+ (Size-1) % MainBuf_SIZE])==(uint8_t)(~sum))
-	{
-		return 1;
-	}
-	else
-	{
-		return 0;
-	}
+	if((uint8_t)buffertoCheckSum[oldPos+(Size-1) % MainBuf_SIZE] == (uint8_t)(~sum)) UARTstateManagement(MainBuf);
 }
 
-//uint8_t checkAck (uint8_t *buffertoCheckAck , uint16_t StartPos, uint16_t EndPos, uint16_t Size)
-//{
-//	for (int i=0; i < Size; i++)
-//	{
-//		if ((RxBuf[i] == 0b01011000) && (RxBuf[i+1] == 0b01110101))
-//		{
-//			return checkSum(MainBuf, oldPos, newPos, Size);
-//		}
-//		else
-//		{
-//			return checkSum(MainBuf, oldPos, newPos, Size);
-//		}
-//	}
-//	return 2;
-//}
+uint8_t checkAck (uint8_t *buffertoCheckAck, uint16_t Size)
+{
+	if((buffertoCheckAck[oldPos] == 0b01011000) && (buffertoCheckAck[oldPos+1 % MainBuf_SIZE] == 0b01110101)) return 1;
+	else return 0;
+}
 
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 {
@@ -853,10 +943,7 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
                         newPos = dataSize+oldPos;
                 }
 
-                if(checkSum(MainBuf, oldPos, newPos, dataSize))
-                {
-                        UARTstateManagement(MainBuf);
-                }
+                checkSum(MainBuf, Size);
 
                 /* start the DMA again */
                 HAL_UARTEx_ReceiveToIdle_DMA(&UART, (uint8_t *) RxBuf, RxBuf_SIZE);
@@ -882,9 +969,7 @@ void UARTstateManagement(uint8_t *Mainbuffer)
 			}
 			break;
 		case normOperation:
-			if((Mainbuffer[oldPos] >> 4) == 0b1001) stateSwitch = Mainbuffer[oldPos];
-			else stateSwitch = Mainbuffer[oldPos+2 % MainBuf_SIZE];
-//			stateSwitch = Mainbuffer[oldPos];
+			stateSwitch = modeByte;
 			switch (stateSwitch)
 			{
 				// Mode 1 Test Command
@@ -972,7 +1057,11 @@ void UARTstateManagement(uint8_t *Mainbuffer)
 				case 0b10011010:
 					modeNo = 10;
 					FlagAckFromUART = 0;
-					posData = (uint16_t)(((((Robot.Position)*10000.0)*M_PI)/180.0));
+					static uint16_t pos = 0;
+//					posData = (uint16_t)(((((Robot.Position)*10000.0)*M_PI)/180.0));
+					if(pos != uartPos) pos++;
+					else Robot.RunningFlag = 0;
+					posData = (uint16_t)(((((pos)*10000.0)*M_PI)/180.0));
 					if(Robot.RunningFlag == 1){
 						memcpy(sendData, ACK_1, 2);
 						sendData[2] = 154; // start-mode
@@ -1027,6 +1116,8 @@ void UARTstateManagement(uint8_t *Mainbuffer)
 					homingFlag = 1;
 					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
 					break;
+				default:
+					sizeErrorCount++;
 				}
 	}
 }
