@@ -138,6 +138,7 @@ uint8_t ACK_2[2] = { 70, 0b01101110 };
  uint8_t modeNo = 0;
  uint8_t modeByte = 0;
  uint64_t timeElapsed = 0;
+ uint32_t sizeErrorCount =0;
  // ---------------------------------UART--------------------------------- //
  // ---------------------------------CTRL--------------------------------- //
 /* Setup Microsec */
@@ -935,13 +936,18 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
                 }
 
                 checkSum(MainBuf, Size);
-
-                /* start the DMA again */
                 HAL_UARTEx_ReceiveToIdle_DMA(&UART, (uint8_t *) RxBuf, RxBuf_SIZE);
                 __HAL_DMA_DISABLE_IT(&DMA, DMA_IT_HT);
         }
 }
 
+//void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart){
+//	if(huart->Instance == USART2){
+//		/* start the DMA again */
+//		HAL_UARTEx_ReceiveToIdle_DMA(&UART, (uint8_t *) RxBuf, RxBuf_SIZE);
+//		__HAL_DMA_DISABLE_IT(&DMA, DMA_IT_HT);
+//	}
+//}
 void UARTstateManagement(uint8_t *Mainbuffer)
 {
 	uint16_t rxDatalen = newPos - oldPos;
@@ -1017,10 +1023,13 @@ void UARTstateManagement(uint8_t *Mainbuffer)
 				// Mode 8
 				case 0b10011000:
 					modeNo = 8;
+					if(Robot.RunningFlag == 0)
+					{
 					Robot.GoalPositon = uartPos;
 					CoefficientAndTimeCalculation(&traject,Robot.Position,Robot.GoalPositon);
 					Robot.flagStartTime = 1;
 					Robot.RunningFlag = 1;
+					}
 					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
 					break;
 				// Mode 9
