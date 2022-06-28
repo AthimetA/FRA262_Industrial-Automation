@@ -138,10 +138,6 @@ uint8_t ACK_2[2] = { 70, 0b01101110 };
  uint8_t modeNo = 0;
  uint8_t modeByte = 0;
  uint64_t timeElapsed = 0;
-
- uint8_t errorUARTDATA[6];
- uint8_t sizeErrorFlag = 0;
- uint8_t sizeErrorCount = 0;
  // ---------------------------------UART--------------------------------- //
  // ---------------------------------CTRL--------------------------------- //
 /* Setup Microsec */
@@ -308,8 +304,8 @@ int main(void)
   PIDVelocityController_Init(&PidVelo);
   PIDVelocityController_Init(&PidPos);
 
-  UARTState = normOperation;
-  RobotState = NormM;
+//  UARTState = normOperation;
+//  RobotState = NormM;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -892,11 +888,6 @@ void checkSum (uint8_t *buffertoCheckSum, uint16_t Size)
 	switch(Size){
 	case 1:
 	case 3:
-		memset(errorUARTDATA,0x00,6);
-		memcpy(errorUARTDATA, RxBuf, Size);
-		errorUARTDATA[4] = newPos;
-		errorUARTDATA[5] = oldPos;
-		sizeErrorFlag = Size;
 		break;
 	case 2:
 		if(!(checkAck(buffertoCheckSum, Size))) modeByte = sum = buffertoCheckSum[oldPos];
@@ -1058,10 +1049,10 @@ void UARTstateManagement(uint8_t *Mainbuffer)
 					modeNo = 10;
 					FlagAckFromUART = 0;
 					static uint16_t pos = 0;
-//					posData = (uint16_t)(((((Robot.Position)*10000.0)*M_PI)/180.0));
-					if(pos != uartPos) pos++;
-					else Robot.RunningFlag = 0;
-					posData = (uint16_t)(((((pos)*10000.0)*M_PI)/180.0));
+					posData = (uint16_t)(((((Robot.Position)*10000.0)*M_PI)/180.0));
+//					if(pos != uartPos) pos++;
+//					else Robot.RunningFlag = 0;
+//					posData = (uint16_t)(((((pos)*10000.0)*M_PI)/180.0));
 					if(Robot.RunningFlag == 1){
 						memcpy(sendData, ACK_1, 2);
 						sendData[2] = 154; // start-mode
