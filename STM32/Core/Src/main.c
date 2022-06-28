@@ -138,7 +138,6 @@ uint8_t ACK_2[2] = { 70, 0b01101110 };
  uint8_t modeNo = 0;
  uint8_t modeByte = 0;
  uint64_t timeElapsed = 0;
- uint32_t sizeErrorCount =0;
  // ---------------------------------UART--------------------------------- //
  // ---------------------------------CTRL--------------------------------- //
 /* Setup Microsec */
@@ -1037,64 +1036,42 @@ void UARTstateManagement(uint8_t *Mainbuffer)
 					modeNo = 9;
 					FlagAckFromUART = 0;
 					Robot.CurrentStation = 0;
-					if(Robot.RunningFlag == 1){
-						memcpy(sendData, ACK_1, 2);
-						sendData[2] = 153; // start-mode
-						sendData[3] = 0;
-						sendData[4] = Robot.CurrentStation; // set current goal
-						sendData[5] = (uint8_t)(~(sendData[2]+sendData[3]+sendData[4]));
-					}
-					else{
-						memcpy(sendData, ACK_2, 2);
-						sendData[2] = 153; // start-mode
-						sendData[3] = 0;
-						sendData[4] = Robot.CurrentStation; // set current goal
-						sendData[5] = (uint8_t)(~(sendData[2]+sendData[3]+sendData[4]));
-					}
+					if(Robot.RunningFlag == 0) HAL_UART_Transmit_DMA(&UART, ACK_2, 2);
+					memcpy(sendData, ACK_1, 2);
+					sendData[2] = 154; // start-mode
+					sendData[3] = (posData) >> 8 ; // set high byte posData
+					sendData[4] = (posData) & 0xff; // set low byte posData
+					sendData[5] = (uint8_t)(~(sendData[2]+sendData[3]+sendData[4]));
 					HAL_UART_Transmit_DMA(&UART, sendData, 6);
 					break;
 				// Mode 10
 				case 0b10011010:
 					modeNo = 10;
 					FlagAckFromUART = 0;
-					static uint16_t pos = 0;
 					posData = (uint16_t)(((((Robot.Position)*10000.0)*M_PI)/180.0));
+//					static uint16_t pos = 0;
+//					posData = (uint16_t)(((((pos)*10000.0)*M_PI)/180.0));
+					if(Robot.RunningFlag == 0) HAL_UART_Transmit_DMA(&UART, ACK_2, 2);
+					memcpy(sendData, ACK_1, 2);
+					sendData[2] = 154; // start-mode
+					sendData[3] = (posData) >> 8 ; // set high byte posData
+					sendData[4] = (posData) & 0xff; // set low byte posData
+					sendData[5] = (uint8_t)(~(sendData[2]+sendData[3]+sendData[4]));
+					HAL_UART_Transmit_DMA(&UART, sendData, 6);
 //					if(pos != uartPos) pos++;
 //					else Robot.RunningFlag = 0;
-//					posData = (uint16_t)(((((pos)*10000.0)*M_PI)/180.0));
-					if(Robot.RunningFlag == 1){
-						memcpy(sendData, ACK_1, 2);
-						sendData[2] = 154; // start-mode
-						sendData[3] = (posData) >> 8 ; // set high byte posData
-						sendData[4] = (posData) & 0xff; // set low byte posData
-						sendData[5] = (uint8_t)(~(sendData[2]+sendData[3]+sendData[4]));
-					}
-					else{
-						memcpy(sendData, ACK_2, 2);
-						sendData[2] = 154; // start-mode
-						sendData[3] = (posData) >> 8; // set low byte posData
-						sendData[4] = (posData) & 0xff; // set high byte posData
-						sendData[5] = (uint8_t)(~(sendData[2]+sendData[3]+sendData[4]));
-					}
-					HAL_UART_Transmit_DMA(&UART, sendData, 6);
 					break;
 				// Mode 11
 				case 0b10011011:
 					modeNo = 11;
 					FlagAckFromUART = 0;
 					veloData = (uint16_t)((((Robot.Velocity*30.0)/M_PI)/10.0)*255.0);
-					if(Robot.RunningFlag == 1){
-						memcpy(sendData, ACK_1, 2);
-						sendData[2] = 155;
-						sendData[4] = veloData >> 8; // set low byte posData
-						sendData[5] = (~(sendData[2]+sendData[3]+sendData[4]));
-					}
-					else{
-						memcpy(sendData, ACK_2, 2);
-						sendData[2] = 155;
-						sendData[4] = veloData >> 8; // set low byte posData
-						sendData[5] = (~(sendData[2]+sendData[3]+sendData[4]));
-					}
+					if(Robot.RunningFlag == 0) HAL_UART_Transmit_DMA(&UART, ACK_2, 2);
+					memcpy(sendData, ACK_1, 2);
+					sendData[2] = 154; // start-mode
+					sendData[3] = (posData) >> 8 ; // set high byte posData
+					sendData[4] = (posData) & 0xff; // set low byte posData
+					sendData[5] = (uint8_t)(~(sendData[2]+sendData[3]+sendData[4]));
 					HAL_UART_Transmit_DMA(&UART, sendData, 6);
 					break;
 				// Mode 12
@@ -1116,8 +1093,6 @@ void UARTstateManagement(uint8_t *Mainbuffer)
 					homingFlag = 1;
 					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
 					break;
-				default:
-					sizeErrorCount++;
 				}
 	}
 }
