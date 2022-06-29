@@ -150,6 +150,7 @@ int WrappingStep = 0;
 int PositionRaw = 0;
 float32_t PositionDeg[2] = {0};
 float32_t VelocityDeg = 0;
+float invTFOutput = 0;
 /* Initialise Kalman Filter */
 KalmanFilterVar KalmanVar = {
 		{1.0,dt,0.5*dt*dt,0.0,1.0,dt,0.0,0.0,1.0}, // A
@@ -246,6 +247,7 @@ void EndeffLaserReadStatus();
 void UARTstateManagement(uint8_t *Mainbuffer);
 void RobotstateManagement();
 void EndEffstateManagement();
+float InverseTFofMotor(float Velo);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -845,6 +847,12 @@ void ControllLoopAndErrorHandler()
 		PWMCHECKER = 0.0;
 		Drivemotor(PWMCHECKER);
 	}
+}
+
+float InverseTFofMotor(float Velo)
+{
+	static float Voltage = 0;
+	static float Pwm = 0;
 }
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
