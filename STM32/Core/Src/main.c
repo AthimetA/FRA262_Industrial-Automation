@@ -124,7 +124,7 @@ int32_t TIMEOUT = 0;
 uint8_t ACK_1[2] = { 0x58, 0b01110101 };
 uint8_t ACK_2[2] = { 70, 0b01101110 };
 // Data Buffer
- uint8_t sendData[6] = {0};
+ uint8_t sendData[8] = {0};
  //for sending data to base sys
  uint16_t posData = 0;
  uint16_t veloData = 0;
@@ -138,7 +138,6 @@ uint8_t ACK_2[2] = { 70, 0b01101110 };
  uint8_t modeNo = 0;
  uint8_t modeByte = 0;
  uint64_t timeElapsed = 0;
- uint32_t sizeErrorCount =0;
  // ---------------------------------UART--------------------------------- //
  // ---------------------------------CTRL--------------------------------- //
 /* Setup Microsec */
@@ -1048,43 +1047,48 @@ void UARTstateManagement(uint8_t *Mainbuffer)
 					if(Robot.RunningFlag == 1){
 						memcpy(sendData, ACK_1, 2);
 						sendData[2] = 153; // start-mode
-						sendData[3] = 0;
-						sendData[4] = Robot.CurrentStation; // set current goal
+						sendData[4] = Robot.CurrentStation; // set currentStation
 						sendData[5] = (uint8_t)(~(sendData[2]+sendData[3]+sendData[4]));
+						HAL_UART_Transmit_DMA(&UART, sendData, 6);
 					}
 					else{
 						memcpy(sendData, ACK_2, 2);
-						sendData[2] = 153; // start-mode
-						sendData[3] = 0;
-						sendData[4] = Robot.CurrentStation; // set current goal
-						sendData[5] = (uint8_t)(~(sendData[2]+sendData[3]+sendData[4]));
+						memcpy(sendData+2, ACK_1, 2);
+						sendData[4] = 153; // start-mode
+						sendData[6] = Robot.CurrentStation; // set currentStation
+						sendData[7] = (uint8_t)(~(sendData[2]+sendData[3]+sendData[4]));
+						HAL_UART_Transmit_DMA(&UART, sendData, 8);
 					}
-					HAL_UART_Transmit_DMA(&UART, sendData, 6);
 					break;
 				// Mode 10
 				case 0b10011010:
 					modeNo = 10;
 					FlagAckFromUART = 0;
-					static uint16_t pos = 0;
 					posData = (uint16_t)(((((Robot.Position)*10000.0)*M_PI)/180.0));
-//					if(pos != uartPos) pos++;
-//					else Robot.RunningFlag = 0;
+
+//					static uint16_t pos = 0;
 //					posData = (uint16_t)(((((pos)*10000.0)*M_PI)/180.0));
+
 					if(Robot.RunningFlag == 1){
 						memcpy(sendData, ACK_1, 2);
 						sendData[2] = 154; // start-mode
 						sendData[3] = (posData) >> 8 ; // set high byte posData
 						sendData[4] = (posData) & 0xff; // set low byte posData
 						sendData[5] = (uint8_t)(~(sendData[2]+sendData[3]+sendData[4]));
+						HAL_UART_Transmit_DMA(&UART, sendData, 6);
 					}
 					else{
 						memcpy(sendData, ACK_2, 2);
-						sendData[2] = 154; // start-mode
-						sendData[3] = (posData) >> 8; // set low byte posData
-						sendData[4] = (posData) & 0xff; // set high byte posData
-						sendData[5] = (uint8_t)(~(sendData[2]+sendData[3]+sendData[4]));
+						memcpy(sendData+2, ACK_1, 2);
+						sendData[4] = 154; // start-mode
+						sendData[5] = (posData) >> 8 ; // set high byte posData
+						sendData[6] = (posData) & 0xff; // set low byte posData
+						sendData[7] = (uint8_t)(~(sendData[2]+sendData[3]+sendData[4]));
+						HAL_UART_Transmit_DMA(&UART, sendData, 8);
 					}
-					HAL_UART_Transmit_DMA(&UART, sendData, 6);
+
+//					if(pos != uartPos) pos++;
+//					else Robot.RunningFlag = 0;
 					break;
 				// Mode 11
 				case 0b10011011:
@@ -1093,17 +1097,19 @@ void UARTstateManagement(uint8_t *Mainbuffer)
 					veloData = (uint16_t)((((Robot.Velocity*30.0)/M_PI)/10.0)*255.0);
 					if(Robot.RunningFlag == 1){
 						memcpy(sendData, ACK_1, 2);
-						sendData[2] = 155;
-						sendData[4] = veloData >> 8; // set low byte posData
-						sendData[5] = (~(sendData[2]+sendData[3]+sendData[4]));
+						sendData[2] = 155; // start-mode
+						sendData[4] = (veloData) >> 8; // set low byte posData
+						sendData[5] = (uint8_t)(~(sendData[2]+sendData[3]+sendData[4]));
+						HAL_UART_Transmit_DMA(&UART, sendData, 6);
 					}
 					else{
 						memcpy(sendData, ACK_2, 2);
-						sendData[2] = 155;
-						sendData[4] = veloData >> 8; // set low byte posData
-						sendData[5] = (~(sendData[2]+sendData[3]+sendData[4]));
+						memcpy(sendData+2, ACK_1, 2);
+						sendData[4] = 155; // start-mode
+						sendData[6] = (veloData) >> 8; // set low byte posData
+						sendData[7] = (uint8_t)(~(sendData[2]+sendData[3]+sendData[4]));
+						HAL_UART_Transmit_DMA(&UART, sendData, 8);
 					}
-					HAL_UART_Transmit_DMA(&UART, sendData, 6);
 					break;
 				// Mode 12
 				case 0b10011100:
@@ -1124,8 +1130,6 @@ void UARTstateManagement(uint8_t *Mainbuffer)
 					homingFlag = 1;
 					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
 					break;
-				default:
-					sizeErrorCount++;
 				}
 	}
 }
