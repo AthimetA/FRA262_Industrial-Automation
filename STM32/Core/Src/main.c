@@ -106,7 +106,7 @@ enum{AwaitSethome,MCDisCon ,normOperation} UARTState = AwaitSethome;
 // EndEff = MotorOn(PWM=0), EndEff On(Send Something and Shoot Laser)(LED On)
 enum{init, FindHome , NormM, EndEff, emergency} RobotState = init;
 // EndEff State
-enum{idle,CheckBeforRun,OpenLaser,SetupReadStatus,ReadStatus} EndEffState = idle;
+enum{idle,CheckBeforRun,OpenLaser,SetupReadStatus,ReadStatus} EndEffState = CheckBeforRun;
 enum{Opening,Closing,Working,AwaitCommand} EndEffStatus = AwaitCommand;
 // ---------------------------------MainRobot---------------------------------- //
 // ---------------------------------UART--------------------------------- //
@@ -132,9 +132,17 @@ uint8_t ACK_2[2] = { 70, 0b01101110 };
  uint16_t uartPos = 0;
  uint8_t uartGoal[15];
  uint8_t goalAmount = 0;
- uint8_t goalIDX = 0;
- uint8_t homingFlag = 0;
+ int8_t goalIDX = 0;
+ uint8_t goalFlag = 0; // 1 = Angular Pos, 2 = Single Goal, Multi Goal
+
+ uint16_t goalDeg[10] = {30, 60, 90, 120, 150, 180, 210, 240, 270, 300};
+
+ uint8_t reachedGoalFlag = 0;
  uint8_t endEffFlag = 0;
+ uint8_t homingFlag = 0;
+ uint8_t doingTaskFlag = 0;
+ uint8_t goingToGoalFlag = 0;
+
  uint8_t modeNo = 0;
  uint8_t modeByte = 0;
  uint64_t timeElapsed = 0;
@@ -832,6 +840,8 @@ void ControllLoopAndErrorHandler()
 			PWMCHECKER = 0.0;
 			Drivemotor(PWMCHECKER);
 			Robot.RunningFlag = 0;
+			goingToGoalFlag = 0;
+			endEffFlag = 1;
 		}
 		else
 		{
@@ -1005,21 +1015,25 @@ void UARTstateManagement(uint8_t *Mainbuffer)
 				// Mode 5 Set Angular Position
 				case 0b10010101:
 					modeNo = 5;
+					goalFlag = 1;
+					goalAmount = 1;
 					uartPos = (uint16_t)((((Mainbuffer[oldPos + 1 % MainBuf_SIZE] << 8) | Mainbuffer[oldPos + 2 % MainBuf_SIZE])*360.0)/62800);
 					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
 					break;
-				// Mode 6
+				// Mode 6 Single Goal
 				case 0b10010110:
 					modeNo = 6;
-					memset(uartGoal, 0, 15);
+					goalFlag = 2;
+					memset(uartGoal, '\0', 15);
 					goalAmount = 1;
 					uartGoal[0] = Mainbuffer[oldPos + 2 % MainBuf_SIZE];
 					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
 					break;
-				// Mode 7
+				// Mode 7 Multi Goal
 				case 0b10010111:
 					modeNo = 7;
-					memset(uartGoal, 0, 15);
+					goalFlag = 2;
+					memset(uartGoal, '\0', 15);
 					goalAmount = Mainbuffer[oldPos + 1 % MainBuf_SIZE];
 					for(int i = 0; i < ((goalAmount+1)/2); i++){
 						uartGoal[0+(i*2)] = Mainbuffer[oldPos + (2+i) % MainBuf_SIZE] & 15; // low 8 bit (last 4 bit)
@@ -1030,12 +1044,12 @@ void UARTstateManagement(uint8_t *Mainbuffer)
 				// Mode 8
 				case 0b10011000:
 					modeNo = 8;
-					if(Robot.RunningFlag == 0)
+					if(doingTaskFlag == 0)
 					{
-					Robot.GoalPositon = uartPos;
-					CoefficientAndTimeCalculation(&traject,Robot.Position,Robot.GoalPositon);
+					goalIDX = 0;
 					Robot.flagStartTime = 1;
 					Robot.RunningFlag = 1;
+					doingTaskFlag = 1;
 					}
 					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
 					break;
@@ -1044,10 +1058,10 @@ void UARTstateManagement(uint8_t *Mainbuffer)
 					modeNo = 9;
 					FlagAckFromUART = 0;
 					Robot.CurrentStation = 0;
-					if(Robot.RunningFlag == 1){
+					if(doingTaskFlag == 1){
 						memcpy(sendData, ACK_1, 2);
 						sendData[2] = 153; // start-mode
-						sendData[4] = Robot.CurrentStation; // set currentStation
+						sendData[4] = Robot.CurrentStation; // set current goal
 						sendData[5] = (uint8_t)(~(sendData[2]+sendData[3]+sendData[4]));
 						HAL_UART_Transmit_DMA(&UART, sendData, 6);
 					}
@@ -1056,20 +1070,21 @@ void UARTstateManagement(uint8_t *Mainbuffer)
 						memcpy(sendData+2, ACK_1, 2);
 						sendData[4] = 153; // start-mode
 						sendData[6] = Robot.CurrentStation; // set currentStation
-						sendData[7] = (uint8_t)(~(sendData[2]+sendData[3]+sendData[4]));
+						sendData[7] = (uint8_t)(~(sendData[4]+sendData[5]+sendData[6]));
 						HAL_UART_Transmit_DMA(&UART, sendData, 8);
 					}
+
 					break;
 				// Mode 10
 				case 0b10011010:
 					modeNo = 10;
 					FlagAckFromUART = 0;
+					static uint16_t pos = 0;
 					posData = (uint16_t)(((((Robot.Position)*10000.0)*M_PI)/180.0));
-
-//					static uint16_t pos = 0;
+//					if(pos != uartPos) pos++;
+//					else Robot.RunningFlag = 0;
 //					posData = (uint16_t)(((((pos)*10000.0)*M_PI)/180.0));
-
-					if(Robot.RunningFlag == 1){
+					if(doingTaskFlag == 1){
 						memcpy(sendData, ACK_1, 2);
 						sendData[2] = 154; // start-mode
 						sendData[3] = (posData) >> 8 ; // set high byte posData
@@ -1081,25 +1096,29 @@ void UARTstateManagement(uint8_t *Mainbuffer)
 						memcpy(sendData, ACK_2, 2);
 						memcpy(sendData+2, ACK_1, 2);
 						sendData[4] = 154; // start-mode
-						sendData[5] = (posData) >> 8 ; // set high byte posData
-						sendData[6] = (posData) & 0xff; // set low byte posData
-						sendData[7] = (uint8_t)(~(sendData[2]+sendData[3]+sendData[4]));
+						if(homingFlag == 1 && Robot.Position <= 0.5){
+							sendData[5] = 0; // set high byte posData
+							sendData[6] = 0; // set low byte posData
+						}
+						else{
+							sendData[5] = (posData) >> 8 ; // set high byte posData
+							sendData[6] = (posData) & 0xff; // set low byte posData
+						}
+						sendData[7] = (uint8_t)(~(sendData[4]+sendData[5]+sendData[6]));
+
 						HAL_UART_Transmit_DMA(&UART, sendData, 8);
 					}
-
-//					if(pos != uartPos) pos++;
-//					else Robot.RunningFlag = 0;
 					break;
 				// Mode 11
 				case 0b10011011:
 					modeNo = 11;
 					FlagAckFromUART = 0;
 					veloData = (uint16_t)((((Robot.Velocity*30.0)/M_PI)/10.0)*255.0);
-					if(Robot.RunningFlag == 1){
+					if(doingTaskFlag == 1){
 						memcpy(sendData, ACK_1, 2);
-						sendData[2] = 155; // start-mode
-						sendData[4] = (veloData) >> 8; // set low byte posData
-						sendData[5] = (uint8_t)(~(sendData[2]+sendData[3]+sendData[4]));
+						sendData[2] = 155;
+						sendData[4] = veloData >> 8; // set low byte posData
+						sendData[5] = (~(sendData[2]+sendData[3]+sendData[4]));
 						HAL_UART_Transmit_DMA(&UART, sendData, 6);
 					}
 					else{
@@ -1107,7 +1126,7 @@ void UARTstateManagement(uint8_t *Mainbuffer)
 						memcpy(sendData+2, ACK_1, 2);
 						sendData[4] = 155; // start-mode
 						sendData[6] = (veloData) >> 8; // set low byte posData
-						sendData[7] = (uint8_t)(~(sendData[2]+sendData[3]+sendData[4]));
+						sendData[7] = (uint8_t)(~(sendData[4]+sendData[5]+sendData[6]));
 						HAL_UART_Transmit_DMA(&UART, sendData, 8);
 					}
 					break;
@@ -1187,6 +1206,25 @@ void RobotstateManagement()
 			}
 			break;
 		case NormM:
+			if(doingTaskFlag == 1 && Robot.RunningFlag == 1 && endEffFlag == 0){
+				if(goalFlag == 1 && goingToGoalFlag == 0){
+					goingToGoalFlag = 1;
+					Robot.GoalPositon = uartPos;
+					CoefficientAndTimeCalculation(&traject,Robot.Position,Robot.GoalPositon);
+				}
+				else if(goalFlag == 2 && goingToGoalFlag == 0){
+					goingToGoalFlag = 1;
+					Robot.GoalPositon = goalDeg[uartGoal[goalIDX-1]];
+					CoefficientAndTimeCalculation(&traject,Robot.Position,Robot.GoalPositon);
+				}
+			}
+
+			else if(doingTaskFlag == 1 && Robot.RunningFlag == 0 && endEffFlag == 1){
+				RobotState = EndEff;
+				I2CEndEffectorWriteFlag = 1;
+				I2CEndEffectorReadFlag =  1;
+				EndEffState = CheckBeforRun;
+			}
 			break;
 		case EndEff:
 			break;
@@ -1233,6 +1271,10 @@ void EndEffstateManagement()
 						EndEffState = OpenLaser;
 						I2CEndEffectorWriteFlag = 1;
 						I2CEndEffectorReadFlag =  0;
+
+						if(doingTaskFlag == 1){
+							goalIDX++;
+						}
 					}
 					else
 					{
@@ -1271,6 +1313,13 @@ void EndEffstateManagement()
 				{
 					EndEffState = idle;
 					EndEffStatus = AwaitCommand;
+					RobotState = NormM;
+					if(goalIDX > goalAmount-1){
+						goalFlag = 0;
+						doingTaskFlag = 0;
+					}
+					else Robot.RunningFlag = 1;
+					endEffFlag = 0;
 				}
 				else if(I2CRxDataBuffer[0] == 0x12)
 				{
@@ -1297,12 +1346,12 @@ void EndEffstateManagement()
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-	if(GPIO_Pin == GPIO_PIN_13)
-	{
-		I2CEndEffectorWriteFlag = 1;
-		I2CEndEffectorReadFlag =  1;
-		EndEffState = CheckBeforRun;
-	}
+//	if(GPIO_Pin == GPIO_PIN_13)
+//	{
+//		I2CEndEffectorWriteFlag = 1;
+//		I2CEndEffectorReadFlag =  1;
+//		EndEffState = CheckBeforRun;
+//	}
 	if(GPIO_Pin == GPIO_PIN_10)
 	{
 		// Proxi Sensor
