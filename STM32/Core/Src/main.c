@@ -840,8 +840,6 @@ void ControllLoopAndErrorHandler()
 			PWMCHECKER = 0.0;
 			Drivemotor(PWMCHECKER);
 			Robot.RunningFlag = 0;
-			goingToGoalFlag = 0;
-			endEffFlag = 1;
 		}
 		else
 		{
@@ -1079,12 +1077,17 @@ void UARTstateManagement(uint8_t *Mainbuffer)
 				case 0b10011010:
 					modeNo = 10;
 					FlagAckFromUART = 0;
-					static uint16_t pos = 0;
 					posData = (uint16_t)(((((Robot.Position)*10000.0)*M_PI)/180.0));
-//					if(pos != uartPos) pos++;
-//					else Robot.RunningFlag = 0;
+//					static uint16_t pos = 0; // robot.position mini
 //					posData = (uint16_t)(((((pos)*10000.0)*M_PI)/180.0));
+					if(endEffFlag == 0){
+						if(AbsVal(Robot.GoalPositon - Robot.Position) < 0.5){
+							endEffFlag = 1;
+							goingToGoalFlag = 0;
+						}
+					}
 					if(doingTaskFlag == 1){
+						HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
 						memcpy(sendData, ACK_1, 2);
 						sendData[2] = 154; // start-mode
 						sendData[3] = (posData) >> 8 ; // set high byte posData
@@ -1219,7 +1222,7 @@ void RobotstateManagement()
 				}
 			}
 
-			else if(doingTaskFlag == 1 && Robot.RunningFlag == 0 && endEffFlag == 1){
+			if(goingToGoalFlag == 0 && doingTaskFlag == 1 && Robot.RunningFlag == 0 && endEffFlag == 1){
 				RobotState = EndEff;
 				I2CEndEffectorWriteFlag = 1;
 				I2CEndEffectorReadFlag =  1;
@@ -1279,6 +1282,7 @@ void EndEffstateManagement()
 					else
 					{
 						EndEffState = idle;
+						HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
 					}
 				}
 			}
@@ -1346,12 +1350,10 @@ void EndEffstateManagement()
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-//	if(GPIO_Pin == GPIO_PIN_13)
-//	{
-//		I2CEndEffectorWriteFlag = 1;
-//		I2CEndEffectorReadFlag =  1;
-//		EndEffState = CheckBeforRun;
-//	}
+	if(GPIO_Pin == GPIO_PIN_13)
+	{
+		HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+	}
 	if(GPIO_Pin == GPIO_PIN_10)
 	{
 		// Proxi Sensor
