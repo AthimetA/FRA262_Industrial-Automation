@@ -1087,7 +1087,6 @@ void UARTstateManagement(uint8_t *Mainbuffer)
 						}
 					}
 					if(doingTaskFlag == 1){
-						HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
 						memcpy(sendData, ACK_1, 2);
 						sendData[2] = 154; // start-mode
 						sendData[3] = (posData) >> 8 ; // set high byte posData
@@ -1282,7 +1281,7 @@ void EndEffstateManagement()
 					else
 					{
 						EndEffState = idle;
-						HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+//						HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
 					}
 				}
 			}
@@ -1350,10 +1349,10 @@ void EndEffstateManagement()
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-	if(GPIO_Pin == GPIO_PIN_13)
-	{
-		HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
-	}
+//	if(GPIO_Pin == GPIO_PIN_13)
+//	{
+//		HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+//	}
 	if(GPIO_Pin == GPIO_PIN_10)
 	{
 		// Proxi Sensor
