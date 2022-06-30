@@ -1081,7 +1081,7 @@ void UARTstateManagement(uint8_t *Mainbuffer)
 //					static uint16_t pos = 0; // robot.position mini
 //					posData = (uint16_t)(((((pos)*10000.0)*M_PI)/180.0));
 					if(endEffFlag == 0){
-						if(AbsVal(Robot.GoalPositon - Robot.Position) < 0.5){
+						if(AbsVal(Robot.GoalPositon - Robot.Position) < 0.5 && AbsVal(Robot.Velocity) < 1.0){
 							endEffFlag = 1;
 							goingToGoalFlag = 0;
 						}
