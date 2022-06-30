@@ -1045,6 +1045,7 @@ void UARTstateManagement(uint8_t *Mainbuffer)
 					if(doingTaskFlag == 0)
 					{
 					goalIDX = 0;
+					goingToGoalFlag = 0;
 					Robot.flagStartTime = 1;
 					Robot.RunningFlag = 1;
 					doingTaskFlag = 1;
@@ -1216,7 +1217,7 @@ void RobotstateManagement()
 				}
 				else if(goalFlag == 2 && goingToGoalFlag == 0){
 					goingToGoalFlag = 1;
-					Robot.GoalPositon = goalDeg[uartGoal[goalIDX-1]];
+					Robot.GoalPositon = goalDeg[uartGoal[goalIDX]];
 					CoefficientAndTimeCalculation(&traject,Robot.Position,Robot.GoalPositon);
 				}
 			}
@@ -1318,6 +1319,7 @@ void EndEffstateManagement()
 					EndEffStatus = AwaitCommand;
 					RobotState = NormM;
 					if(goalIDX > goalAmount-1){
+						goalIDX = 0;
 						goalFlag = 0;
 						doingTaskFlag = 0;
 					}
