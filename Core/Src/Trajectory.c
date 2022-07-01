@@ -17,6 +17,7 @@ void Robotinit(RobotManagement *Robot)
 	  Robot -> HomePositon = 0.0;
 	  Robot -> QX = 0.0;
 	  Robot -> QV = 0.0;
+	  Robot -> QVMax = 0.0;
 
 	  Robot -> flagSethome = 0;
 	  Robot -> flagStartTime = 0;
@@ -43,7 +44,7 @@ float AbsVal(float number)
   }
 }
 
-void CoefficientAndTimeCalculation(TrajectoryG *traject, float Qinitial, float Qfinal){
+void CoefficientAndTimeCalculation(TrajectoryG *traject, float Qinitial, float Qfinal, float Veloinput){
 
 	traject -> Qin = Qinitial;
 	traject -> Qfinal = Qfinal;
@@ -52,8 +53,8 @@ void CoefficientAndTimeCalculation(TrajectoryG *traject, float Qinitial, float Q
 
 	// Set Vmax Amax Jmax
 	traject -> Vmax = 0.0;
-	traject -> Amax = 0.0;
-	traject -> Jmax = 0.0;
+	traject -> Amax = 28.64789;
+	traject -> Jmax = 572.957795 ;
 	float gain = 0.0;
 	if(traject -> QRelative < 0.0)
 	{
@@ -64,42 +65,20 @@ void CoefficientAndTimeCalculation(TrajectoryG *traject, float Qinitial, float Q
 		gain = 1.0;
 	}
 	// Find Speed limit
-	float Vcheck = AbsVal(traject -> QRelative);
-	if(Vcheck >= 1.0  && Vcheck < 20.0)
+	float DistanceABS = AbsVal(traject -> QRelative);
+
+	if(DistanceABS >= 130)
 	{
-		traject -> Amax =  5.73;
-		traject -> Jmax =  114.6;
-		traject -> Vmax =  3.0;
+		traject -> Vmax = 60;
 	}
-	else if(Vcheck >= 20.0  && Vcheck < 40.0)
+	else
 	{
-		traject -> Amax =  5.73;
-		traject -> Jmax =  114.6;
-		traject -> Vmax =  6.0;
+		traject -> Vmax = (-0.0000003*(DistanceABS*DistanceABS*DistanceABS*DistanceABS))+(0.00009*(DistanceABS*DistanceABS*DistanceABS))-(0.0115*(DistanceABS*DistanceABS))+(0.995*DistanceABS)+7.1259;
 	}
-	else if(Vcheck >= 40.0  && Vcheck < 60.0)
+
+	if(traject -> Vmax > Veloinput)
 	{
-		traject -> Amax =  5.73;
-		traject -> Jmax =  114.6;
-		traject -> Vmax =  9.0;
-	}
-	else if(Vcheck >= 60.0  && Vcheck < 100.0)
-	{
-		traject -> Amax =  5.73;
-		traject -> Jmax =  114.6;
-		traject -> Vmax =  15.0;
-	}
-	else if(Vcheck >= 100.0  && Vcheck < 160.0)
-	{
-		traject -> Amax =  17.9;
-		traject -> Jmax =  286.5;
-		traject -> Vmax =  24;
-	}
-	else if(Vcheck >= 160.0)
-	{
-		traject -> Amax =  22.92;
-		traject -> Jmax =  573;
-		traject -> Vmax =  54;
+		traject -> Vmax = Veloinput;
 	}
 	// RPM to deg/sec with Direction
 	traject -> Vmax =  traject -> Vmax *gain;

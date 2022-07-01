@@ -95,7 +95,7 @@ enum{Opening,Closing,Working,AwaitCommand} EndEffStatus = AwaitCommand;
 // ---------------------------------MainRobot---------------------------------- //
 // ---------------------------------UART--------------------------------- //
 //------Edit Station Here----//
-uint16_t goalDeg[10] = {30, 60, 90, 120, 150, 180, 210, 240, 270, 300};
+float goalDeg[10] = {30, 60, 90, 120, 150, 180, 210, 240, 270, 300};
 //------Edit Station Here----//
 static uint8_t RxBuf[RxBuf_SIZE];
 static uint8_t MainBuf[MainBuf_SIZE];
@@ -109,9 +109,9 @@ uint8_t ACK_1[2] = { 0x58, 0b01110101 };
 uint8_t ACK_2[2] = { 70, 0b01101110 };
  //for sending data to base sys
  uint16_t posData = 0;
- uint16_t veloData = 0;
- uint16_t uartVelo = 0;
- uint16_t uartPos = 0;
+ uint8_t veloData = 0;
+ float uartVelo = 0;
+ float uartPos = 0;
  uint8_t uartGoal[15];
  uint8_t goalAmount = 0;
  int8_t goalIDX = 0;
@@ -878,7 +878,8 @@ void UARTstateManagement(uint8_t *Mainbuffer)
 				// Mode 4 Set Angular Velocity
 				case 0b10010100:
 					modeNo = 4;
-					uartVelo = ((Mainbuffer[oldPos + 2 % MainBuf_SIZE])/255.0)*10.0;
+					uartVelo = (float)((Mainbuffer[oldPos + 2 % MainBuf_SIZE])/255.0)*10.0;
+					Robot.QVMax = uartVelo*6.0;
 					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
 					break;
 				// Mode 5 Set Angular Position
@@ -886,7 +887,7 @@ void UARTstateManagement(uint8_t *Mainbuffer)
 					modeNo = 5;
 					goalFlag = 1;
 					goalAmount = 1;
-					uartPos = (uint16_t)((((Mainbuffer[oldPos + 1 % MainBuf_SIZE] << 8) | Mainbuffer[oldPos + 2 % MainBuf_SIZE])*360.0)/62800);
+					uartPos = (float)((((Mainbuffer[oldPos + 1 % MainBuf_SIZE] << 8) | Mainbuffer[oldPos + 2 % MainBuf_SIZE])*360.0)/62800);
 					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
 					break;
 				// Mode 6 Single Goal
@@ -985,11 +986,11 @@ void UARTstateManagement(uint8_t *Mainbuffer)
 				case 0b10011011:
 					modeNo = 11;
 					FlagAckFromUART = 0;
-					veloData = (uint16_t)((((Robot.Velocity*30.0)/M_PI)/10.0)*255.0);
+					veloData = (((AbsVal(Robot.Velocity)/6.0)*255.0)/10.0);
 					if(doingTaskFlag == 1 || Robot.RunningFlag == 1){
 						memcpy(TxBuf, ACK_1, 2);
 						TxBuf[2] = 155;
-						TxBuf[4] = veloData >> 8; // set low byte posData
+						TxBuf[4] = veloData; // set low byte posData
 						TxBuf[5] = (~(TxBuf[2]+TxBuf[3]+TxBuf[4]));
 						HAL_UART_Transmit_DMA(&UART, TxBuf, 6);
 					}
@@ -997,7 +998,7 @@ void UARTstateManagement(uint8_t *Mainbuffer)
 						memcpy(TxBuf, ACK_2, 2);
 						memcpy(TxBuf+2, ACK_1, 2);
 						TxBuf[4] = 155; // start-mode
-						TxBuf[6] = (veloData) >> 8; // set low byte posData
+						TxBuf[6] = veloData; // set low byte posData
 						TxBuf[7] = (uint8_t)(~(TxBuf[4]+TxBuf[5]+TxBuf[6]));
 						HAL_UART_Transmit_DMA(&UART, TxBuf, 8);
 					}
@@ -1060,7 +1061,7 @@ void RobotstateManagement()
 					EncoderRawData[1] = 0;
 					WrappingStep = 0;
 					// Reset Trajectory
-					CoefficientAndTimeCalculation(&traject,0.0,0.0);
+					CoefficientAndTimeCalculation(&traject,0.0,0.0,60);
 					Robot.flagStartTime = 1;
 					StartTime = 0;
 					CurrentTime = 0;
@@ -1085,12 +1086,12 @@ void RobotstateManagement()
 				if(goalFlag == 1 && goingToGoalFlag == 0){
 					goingToGoalFlag = 1;
 					Robot.GoalPositon = uartPos;
-					CoefficientAndTimeCalculation(&traject,Robot.Position,Robot.GoalPositon);
+					CoefficientAndTimeCalculation(&traject,Robot.Position,Robot.GoalPositon,Robot.QVMax);
 				}
 				else if(goalFlag == 2 && goingToGoalFlag == 0){
 					goingToGoalFlag = 1;
 					Robot.GoalPositon = goalDeg[uartGoal[goalIDX]-1];
-					CoefficientAndTimeCalculation(&traject,Robot.Position,Robot.GoalPositon);
+					CoefficientAndTimeCalculation(&traject,Robot.Position,Robot.GoalPositon,Robot.QVMax);
 				}
 			}
 
@@ -1285,7 +1286,8 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 void RobotRunToPositon(float Destination)
 {
 	Robot.GoalPositon = Destination;
-	CoefficientAndTimeCalculation(&traject,Robot.Position,Robot.GoalPositon);
+	Robot.QVMax = 60.0;
+	CoefficientAndTimeCalculation(&traject,Robot.Position,Robot.GoalPositon,Robot.QVMax);
 	// Start Trajectory Evaluator
 	Robot.MotorIsOn = 1;
 	Robot.flagStartTime = 1;

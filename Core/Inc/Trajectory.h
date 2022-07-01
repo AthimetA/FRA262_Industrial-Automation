@@ -60,6 +60,7 @@ typedef struct {
 	// Trajectory Data
 	float QX;
 	float QV;
+	float QVMax;
 	// On/Off Motor
 	uint8_t MotorIsOn;
 	// flag
@@ -71,7 +72,7 @@ typedef struct {
 void Robotinit(RobotManagement *Robot);
 void RobotSetHome(RobotManagement *Robot , float homePoint);
 float AbsVal(float number);
-void CoefficientAndTimeCalculation(TrajectoryG *traject, float Qinitial, float Qfinal);
+void CoefficientAndTimeCalculation(TrajectoryG *traject, float Qinitial, float Qfinal, float Velomax);
 void TrajectoryEvaluation(TrajectoryG *traject , uint64_t StartTime, uint64_t CurrentTime,uint64_t PredictTime);
 
 #endif /* INC_TRAJECTORY_H_ */
