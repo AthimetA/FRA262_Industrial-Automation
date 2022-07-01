@@ -56,16 +56,13 @@
 #define I2CRxDataLen 1
 #define I2CTxDataLen 1
 // ---------------------------------I2C---------------------------------- //
-// ---------------------------------Kalman------------------------------- //
+// ---------------------------------CTRL--------------------------------- //
 #define dt  0.01f
 //#define Kalmanvar  250000.0f
 #define Kalmanvar  2500.0f
 #define Pvar  1000.0f
-// ---------------------------------Kalman------------------------------- //
-// ---------------------------------PID---------------------------------- //
-/* PWM MAX parameters */
-#define PWM_MAX 10000
-// ---------------------------------PID---------------------------------- //
+#define PWM_MAX 10000 // Max 10000
+// ---------------------------------CTRL--------------------------------- //
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -87,20 +84,19 @@ DMA_HandleTypeDef hdma_usart2_tx;
 /* USER CODE BEGIN PV */
 // ---------------------------------MainRobot---------------------------------- //
 RobotManagement Robot;
+// Home Parameter
 uint8_t homeFF = 0;
 static float homePoint[2] = {0};
-// normOperation(MCCon) = MotorOn, EndEff On
-// emergency = MotorOff, EndEff Off
-// MCDisCon = MotorOff, EndEff Off
-enum{AwaitSethome,MCDisCon ,normOperation} UARTState = AwaitSethome;
-// idle = MotorOn, EndEff On(Do nothing)
-// EndEff = MotorOn(PWM=0), EndEff On(Send Something and Shoot Laser)(LED On)
-enum{init, FindHome , NormM, EndEff, emergency} RobotState = init;
-// EndEff State
+// All State Variable
+enum{AwaitSethome,MCUDisconnect ,MCUConnect} UARTState = AwaitSethome;
+enum{init, FindHome , NormalOperation, EndEff, Emergency} RobotState = init;
 enum{idle,CheckBeforRun,OpenLaser,SetupReadStatus,ReadStatus} EndEffState = CheckBeforRun;
 enum{Opening,Closing,Working,AwaitCommand} EndEffStatus = AwaitCommand;
 // ---------------------------------MainRobot---------------------------------- //
 // ---------------------------------UART--------------------------------- //
+//------Edit Station Here----//
+uint16_t goalDeg[10] = {30, 60, 90, 120, 150, 180, 210, 240, 270, 300};
+//------Edit Station Here----//
 static uint8_t RxBuf[RxBuf_SIZE];
 static uint8_t MainBuf[MainBuf_SIZE];
 static uint8_t TxBuf[TxBuf_SIZE];
@@ -108,14 +104,9 @@ static uint8_t FlagAckFromUART = 0;
 static uint8_t stateSwitch = 0;
 static uint16_t oldPos = 0;
 static uint16_t newPos = 0;
-uint16_t Head, Tail;
-uint16_t dataSize =0;
-/* Timeout is in milliseconds */
-int32_t TIMEOUT = 0;
+static uint16_t dataSize = 0;
 uint8_t ACK_1[2] = { 0x58, 0b01110101 };
 uint8_t ACK_2[2] = { 70, 0b01101110 };
-// Data Buffer
- uint8_t sendData[8] = {0};
  //for sending data to base sys
  uint16_t posData = 0;
  uint16_t veloData = 0;
@@ -125,24 +116,17 @@ uint8_t ACK_2[2] = { 70, 0b01101110 };
  uint8_t goalAmount = 0;
  int8_t goalIDX = 0;
  uint8_t goalFlag = 0; // 1 = Angular Pos, 2 = Single Goal, Multi Goal
-
- uint16_t goalDeg[10] = {30, 60, 90, 120, 150, 180, 210, 240, 270, 300};
-
  uint8_t reachedGoalFlag = 0;
  uint8_t endEffFlag = 0;
  uint8_t homingFlag = 0;
  uint8_t doingTaskFlag = 0;
  uint8_t goingToGoalFlag = 0;
  uint8_t openLaserWriteFlag = 0;
-
  uint8_t modeNo = 0;
  uint8_t modeByte = 0;
  uint64_t timeElapsed = 0;
  // ---------------------------------UART--------------------------------- //
  // ---------------------------------CTRL--------------------------------- //
-/* Setup Microsec */
- uint64_t endEffLoopTime = 0;
- uint64_t ControlLoopTime = 0;
  uint64_t _micro = 0;
 /* Setup EncoderData */
 int EncoderRawData[2] = {0};
@@ -151,27 +135,16 @@ int PositionRaw = 0;
 float32_t PositionDeg[2] = {0};
 float32_t VelocityDeg = 0;
 float invTFOutput = 0;
-/* Initialise Kalman Filter */
 KalmanFilterVar KalmanVar = {
 		{1.0,dt,0.5*dt*dt,0.0,1.0,dt,0.0,0.0,1.0}, // A
 		{0.0,0.0,0.0}, // B
 		{1.0,0.0,0.0}, // C
 		{0.0}, // D
-//		{80000.0}, //Q
-//		{0.0001},
-//		{((dt*dt*dt))/6.0,((dt*dt))/2.0,dt}, //G
 		{dt*dt*dt*dt*Kalmanvar/4,dt*dt*dt*Kalmanvar/2,dt*dt*Kalmanvar/2,dt*dt*dt*Kalmanvar/2,dt*dt*Kalmanvar,dt*Kalmanvar,dt*dt*Kalmanvar/2,dt*Kalmanvar,Kalmanvar},
 		{0.0001}, //R
 		{0,0,((dt*dt*dt))/6,0,0,((dt*dt))/2,0,0,dt},//G
-//		{8000000.0}, //Q
-//		{0.001}, //R
-//		{3000.0}, //Q
-//		{0.01}, //R
-//		{((dt*dt))/2.0,dt,1}, //G
 		{0.0,0.0,0.0}, // STATE X
 		{0.0,0.0,0.0}, // STATE X-1
-//		{0,0,0,0,0,0,0,0,0}, // STATE P
-//		{0,0,0,0,0,0,0,0,0}, // STATE P-1
 		{Pvar,0.0,0.0,0.0,Pvar,0.0,0.0,0.0,Pvar}, // STATE P
 		{Pvar,0.0,0.0,0.0,Pvar,0.0,0.0,0.0,Pvar}, // STATE P-1
 		{0.0}, // Y
@@ -195,15 +168,10 @@ KalmanFilterVar KalmanVar = {
 		{0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0},	// Matrix KC
 		{0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0} 	// Matrix IKC
 };
-/* Initialise PID controller */
 PIDAController PidVelo = {};
 PIDAController PidPos = {};
-/* Simulate response using test system */
-float setpoint = 0.0f;
-float setpointLast = 0.0f;
 float PWMCHECKER = 0.0f;
 float PositionErrorControl = 0.3f;
-/* Trajectory */
 TrajectoryG traject;
 static uint64_t StartTime =0;
 static uint64_t CurrentTime =0;
@@ -211,9 +179,14 @@ static uint64_t PredictTime =0;
 static uint64_t CheckLoopStartTime =0;
 static uint64_t CheckLoopStopTime =0;
 static uint64_t CheckLoopDiffTime =0;
+uint64_t endEffLoopTime = 0;
+uint64_t ControlLoopTime = 0;
+
+// Test Variable
+float setpoint = 0.0f;
+float setpointLast = 0.0f;
 // ---------------------------------CTRL--------------------------------- //
 // ---------------------------------I2C---------------------------------- //
-static uint8_t btncheck = 0;
 uint8_t I2CEndEffectorReadFlag = 0;
 uint8_t I2CEndEffectorWriteFlag = 0;
 static uint8_t I2CRxDataBuffer[EndEffRxBuf_SIZE] ={0};
@@ -288,12 +261,8 @@ int main(void)
   MX_TIM1_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
-  //----UART-----//
   Ringbuf_Init();
-  //  HAL_UART_Receive_DMA(&huart2, RxDataBuffer, 32);
-  //----UART-----//
   KalmanMatrixInit(&KalmanVar);
-  //////////////////////////
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
   HAL_TIM_Base_Start_IT (&htim11);
   HAL_TIM_Encoder_Start(&htim2, TIM_CHANNEL_ALL);
@@ -302,10 +271,6 @@ int main(void)
   PositionRaw=EncoderRawData[0];
   PIDAController_Init(&PidVelo);
   PIDAController_Init(&PidPos);
-
-//  RobotRunToPositon(180.0);
-//  UARTState = normOperation;
-//  RobotState = NormM;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -320,7 +285,6 @@ int main(void)
 		CheckLoopStartTime = Micros();
 		EncoderRead();
 		KalmanFilterFunction(&KalmanVar,PositionDeg[0]);
-////		KalmanFilterFunction(&KalmanVar,VelocityDeg);
 		Robot.Position = PositionDeg[0];
 		Robot.Velocity = KalmanVar.MatState_Data[1];
 		ControllLoopAndErrorHandler();
@@ -805,7 +769,6 @@ void Ringbuf_Init (void)
 	memset(RxBuf, '\0', RxBuf_SIZE);
 	memset(MainBuf, '\0', MainBuf_SIZE);
 
-	Head = Tail = 0;
 	oldPos = 0;
 	newPos = 0;
 
@@ -818,8 +781,6 @@ void Ringbuf_Reset (void)
 {
 	memset(MainBuf,'\0', MainBuf_SIZE);
 	memset(RxBuf, '\0', RxBuf_SIZE);
-	Tail = 0;
-	Head = 0;
 	oldPos = 0;
 	newPos = 0;
 }
@@ -891,16 +852,16 @@ void UARTstateManagement(uint8_t *Mainbuffer)
 		case AwaitSethome:
 			// AFK Wait for Home calibration
 			break;
-		case MCDisCon:
+		case MCUDisconnect:
 			if(Mainbuffer[oldPos] == 0b10010010)
 			{
 				// Connect MC and Back to normal
 				modeNo = 2;
-				UARTState = normOperation;
+				UARTState = MCUConnect;
 				HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
 			}
 			break;
-		case normOperation:
+		case MCUConnect:
 			stateSwitch = modeByte;
 			switch (stateSwitch)
 			{
@@ -914,14 +875,14 @@ void UARTstateManagement(uint8_t *Mainbuffer)
 				case 0b10010010:
 					// Start and Connect MC
 					modeNo = 2;
-					UARTState = normOperation;
+					UARTState = MCUConnect;
 					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
 					break;
 				// Mode 3 Disconnect MC
 				case 0b10010011:
 					// Disconnect MC
 					modeNo = 3;
-					UARTState = MCDisCon;
+					UARTState = MCUDisconnect;
 					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
 					break;
 				// Mode 4 Set Angular Velocity
@@ -977,19 +938,19 @@ void UARTstateManagement(uint8_t *Mainbuffer)
 					FlagAckFromUART = 0;
 					Robot.CurrentStation = 0;
 					if(doingTaskFlag == 1 || Robot.RunningFlag == 1){
-						memcpy(sendData, ACK_1, 2);
-						sendData[2] = 153; // start-mode
-						sendData[4] = Robot.CurrentStation; // set current goal
-						sendData[5] = (uint8_t)(~(sendData[2]+sendData[3]+sendData[4]));
-						HAL_UART_Transmit_DMA(&UART, sendData, 6);
+						memcpy(TxBuf, ACK_1, 2);
+						TxBuf[2] = 153; // start-mode
+						TxBuf[4] = Robot.CurrentStation; // set current goal
+						TxBuf[5] = (uint8_t)(~(TxBuf[2]+TxBuf[3]+TxBuf[4]));
+						HAL_UART_Transmit_DMA(&UART, TxBuf, 6);
 					}
 					else{
-						memcpy(sendData, ACK_2, 2);
-						memcpy(sendData+2, ACK_1, 2);
-						sendData[4] = 153; // start-mode
-						sendData[6] = Robot.CurrentStation; // set currentStation
-						sendData[7] = (uint8_t)(~(sendData[4]+sendData[5]+sendData[6]));
-						HAL_UART_Transmit_DMA(&UART, sendData, 8);
+						memcpy(TxBuf, ACK_2, 2);
+						memcpy(TxBuf+2, ACK_1, 2);
+						TxBuf[4] = 153; // start-mode
+						TxBuf[6] = Robot.CurrentStation; // set currentStation
+						TxBuf[7] = (uint8_t)(~(TxBuf[4]+TxBuf[5]+TxBuf[6]));
+						HAL_UART_Transmit_DMA(&UART, TxBuf, 8);
 					}
 
 					break;
@@ -1005,28 +966,28 @@ void UARTstateManagement(uint8_t *Mainbuffer)
 						}
 					}
 					if(doingTaskFlag == 1 || Robot.RunningFlag == 1){
-						memcpy(sendData, ACK_1, 2);
-						sendData[2] = 154; // start-mode
-						sendData[3] = (posData) >> 8 ; // set high byte posData
-						sendData[4] = (posData) & 0xff; // set low byte posData
-						sendData[5] = (uint8_t)(~(sendData[2]+sendData[3]+sendData[4]));
-						HAL_UART_Transmit_DMA(&UART, sendData, 6);
+						memcpy(TxBuf, ACK_1, 2);
+						TxBuf[2] = 154; // start-mode
+						TxBuf[3] = (posData) >> 8 ; // set high byte posData
+						TxBuf[4] = (posData) & 0xff; // set low byte posData
+						TxBuf[5] = (uint8_t)(~(TxBuf[2]+TxBuf[3]+TxBuf[4]));
+						HAL_UART_Transmit_DMA(&UART, TxBuf, 6);
 					}
 					else{
-						memcpy(sendData, ACK_2, 2);
-						memcpy(sendData+2, ACK_1, 2);
-						sendData[4] = 154; // start-mode
+						memcpy(TxBuf, ACK_2, 2);
+						memcpy(TxBuf+2, ACK_1, 2);
+						TxBuf[4] = 154; // start-mode
 						if(homingFlag == 1 && Robot.Position <= 0.5){
-							sendData[5] = 0; // set high byte posData
-							sendData[6] = 0; // set low byte posData
+							TxBuf[5] = 0; // set high byte posData
+							TxBuf[6] = 0; // set low byte posData
 						}
 						else{
-							sendData[5] = (posData) >> 8 ; // set high byte posData
-							sendData[6] = (posData) & 0xff; // set low byte posData
+							TxBuf[5] = (posData) >> 8 ; // set high byte posData
+							TxBuf[6] = (posData) & 0xff; // set low byte posData
 						}
-						sendData[7] = (uint8_t)(~(sendData[4]+sendData[5]+sendData[6]));
+						TxBuf[7] = (uint8_t)(~(TxBuf[4]+TxBuf[5]+TxBuf[6]));
 
-						HAL_UART_Transmit_DMA(&UART, sendData, 8);
+						HAL_UART_Transmit_DMA(&UART, TxBuf, 8);
 					}
 					break;
 				// Mode 11
@@ -1035,19 +996,19 @@ void UARTstateManagement(uint8_t *Mainbuffer)
 					FlagAckFromUART = 0;
 					veloData = (uint16_t)((((Robot.Velocity*30.0)/M_PI)/10.0)*255.0);
 					if(doingTaskFlag == 1 || Robot.RunningFlag == 1){
-						memcpy(sendData, ACK_1, 2);
-						sendData[2] = 155;
-						sendData[4] = veloData >> 8; // set low byte posData
-						sendData[5] = (~(sendData[2]+sendData[3]+sendData[4]));
-						HAL_UART_Transmit_DMA(&UART, sendData, 6);
+						memcpy(TxBuf, ACK_1, 2);
+						TxBuf[2] = 155;
+						TxBuf[4] = veloData >> 8; // set low byte posData
+						TxBuf[5] = (~(TxBuf[2]+TxBuf[3]+TxBuf[4]));
+						HAL_UART_Transmit_DMA(&UART, TxBuf, 6);
 					}
 					else{
-						memcpy(sendData, ACK_2, 2);
-						memcpy(sendData+2, ACK_1, 2);
-						sendData[4] = 155; // start-mode
-						sendData[6] = (veloData) >> 8; // set low byte posData
-						sendData[7] = (uint8_t)(~(sendData[4]+sendData[5]+sendData[6]));
-						HAL_UART_Transmit_DMA(&UART, sendData, 8);
+						memcpy(TxBuf, ACK_2, 2);
+						memcpy(TxBuf+2, ACK_1, 2);
+						TxBuf[4] = 155; // start-mode
+						TxBuf[6] = (veloData) >> 8; // set low byte posData
+						TxBuf[7] = (uint8_t)(~(TxBuf[4]+TxBuf[5]+TxBuf[6]));
+						HAL_UART_Transmit_DMA(&UART, TxBuf, 8);
 					}
 					break;
 				// Mode 12
@@ -1124,12 +1085,12 @@ void RobotstateManagement()
 					// Start Motor
 					Robot.MotorIsOn = 1;
 					FlagAckFromUART = 1;
-					UARTState = normOperation;
-					RobotState = NormM;
+					UARTState = MCUConnect;
+					RobotState = NormalOperation;
 				}
 			}
 			break;
-		case NormM:
+		case NormalOperation:
 			if(doingTaskFlag == 1 && Robot.RunningFlag == 1 && endEffFlag == 0){
 				if(goalFlag == 1 && goingToGoalFlag == 0){
 					goingToGoalFlag = 1;
@@ -1152,7 +1113,8 @@ void RobotstateManagement()
 			break;
 		case EndEff:
 			break;
-		case emergency:
+		case Emergency:
+			// Luv u pls pass
 			break;
 	}
 }
@@ -1238,7 +1200,7 @@ void EndEffstateManagement()
 				{
 					EndEffState = idle;
 					EndEffStatus = AwaitCommand;
-					RobotState = NormM;
+					RobotState = NormalOperation;
 					endEffFlag = 0;
 					if(doingTaskFlag == 1){
 						goalIDX++;
@@ -1310,8 +1272,16 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 	if(GPIO_Pin == GPIO_PIN_5)
 	{
 //		HAL_GPIO_WritePin(GPIOx, GPIO_Pin, PinState)
+		HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_5)
+		if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_5) == GPIO_PIN_SET)
+		{
+			RobotState = NormalOperation;
+		}
+		else
+		{
+			RobotState = Emergency;
+		}
 		HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_4);
-		btncheck++;
 	}
 }
 void RobotRunToPositon(float Destination)
