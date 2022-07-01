@@ -44,9 +44,9 @@
 // ---------------------------------UART--------------------------------- //
 #define UART huart2
 #define DMA hdma_usart2_rx
-#define RxBuf_SIZE 20
-#define TxBuf_SIZE 20
-#define MainBuf_SIZE 40
+#define RxBuf_SIZE 20 // Max Byte 18
+#define TxBuf_SIZE 8 // Max Byte 8
+#define MainBuf_SIZE 20 // Max Byte 18
 // ---------------------------------UART--------------------------------- //
 // ---------------------------------I2C---------------------------------- //
 #define Endeff_ADDR 0x23<<1
@@ -351,12 +351,11 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
-  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
-  RCC_OscInitStruct.PLL.PLLM = 8;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLM = 4;
   RCC_OscInitStruct.PLL.PLLN = 100;
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
   RCC_OscInitStruct.PLL.PLLQ = 4;
