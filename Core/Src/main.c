@@ -278,7 +278,6 @@ int main(void)
   while (1)
   {
 	  RobotstateManagement();
-	  EndEffstateManagement();
 	  if(Micros() - ControlLoopTime >= 10000)
 	  {
 		ControlLoopTime  = Micros();
@@ -1112,6 +1111,7 @@ void RobotstateManagement()
 			}
 			break;
 		case EndEff:
+			EndEffstateManagement();
 			break;
 		case Emergency:
 			// Luv u pls pass
