@@ -68,6 +68,8 @@ void Error_Handler(void);
 #define USART_RX_GPIO_Port GPIOA
 #define LD2_Pin GPIO_PIN_5
 #define LD2_GPIO_Port GPIOA
+#define Pin_RedLamp_Pin GPIO_PIN_10
+#define Pin_RedLamp_GPIO_Port GPIOB
 #define PIN_DIR_Pin GPIO_PIN_9
 #define PIN_DIR_GPIO_Port GPIOA
 #define Pin_Proxi_Pin GPIO_PIN_10
@@ -77,10 +79,10 @@ void Error_Handler(void);
 #define TMS_GPIO_Port GPIOA
 #define TCK_Pin GPIO_PIN_14
 #define TCK_GPIO_Port GPIOA
-#define Pin_Relay1_Pin GPIO_PIN_3
-#define Pin_Relay1_GPIO_Port GPIOB
-#define Pin_Relay1B4_Pin GPIO_PIN_4
-#define Pin_Relay1B4_GPIO_Port GPIOB
+#define Pin_YelLamp_Pin GPIO_PIN_3
+#define Pin_YelLamp_GPIO_Port GPIOB
+#define Pin_BlueLamp_Pin GPIO_PIN_4
+#define Pin_BlueLamp_GPIO_Port GPIOB
 #define Pin_Emer_Pin GPIO_PIN_5
 #define Pin_Emer_GPIO_Port GPIOB
 #define Pin_Emer_EXTI_IRQn EXTI9_5_IRQn

@@ -8,12 +8,12 @@
 #include "PIDVelocity.h"
 #include "Trajectory.h"
 
-#define PID_KP  3.43589013835019f
-#define PID_KI  0.936768738675359f
-#define PID_KD  0.00054490119125281f
-#define PIDVELO_KP  0.00509871617350813f
-#define PIDVELO_KI  0.509871617350813f
-#define PIDVELO_KD  0.0000127467904337703f
+#define PID_KP  6.0f
+#define PID_KI  0.05f
+#define PID_KD  0.0f
+#define PIDVELO_KP  0.160041136848727f
+#define PIDVELO_KI  3.13946329365331f
+#define PIDVELO_KD  0.0f
 #define PID_LIM_MIN_INT -10000.0f
 #define PID_LIM_MAX_INT  10000.0f
 

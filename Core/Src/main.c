@@ -185,6 +185,7 @@ uint64_t ControlLoopTime = 0;
 // Test Variable
 float setpoint = 0.0f;
 float setpointLast = 0.0f;
+uint8_t checkemer = 0;
 // ---------------------------------CTRL--------------------------------- //
 // ---------------------------------I2C---------------------------------- //
 uint8_t I2CEndEffectorReadFlag = 0;
@@ -592,7 +593,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOA, LD2_Pin|PIN_DIR_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, Pin_Relay1_Pin|Pin_Relay1B4_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, Pin_RedLamp_Pin|Pin_YelLamp_Pin|Pin_BlueLamp_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : B1_Pin */
   GPIO_InitStruct.Pin = B1_Pin;
@@ -607,18 +608,18 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
+  /*Configure GPIO pins : Pin_RedLamp_Pin Pin_YelLamp_Pin Pin_BlueLamp_Pin */
+  GPIO_InitStruct.Pin = Pin_RedLamp_Pin|Pin_YelLamp_Pin|Pin_BlueLamp_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
   /*Configure GPIO pin : Pin_Proxi_Pin */
   GPIO_InitStruct.Pin = Pin_Proxi_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(Pin_Proxi_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : Pin_Relay1_Pin Pin_Relay1B4_Pin */
-  GPIO_InitStruct.Pin = Pin_Relay1_Pin|Pin_Relay1B4_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pin : Pin_Emer_Pin */
   GPIO_InitStruct.Pin = Pin_Emer_Pin;
@@ -721,14 +722,16 @@ void ControllLoopAndErrorHandler()
 		{
 			PWMCHECKER = 0.0;
 			Drivemotor(PWMCHECKER);
+			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, GPIO_PIN_RESET);
 			Robot.RunningFlag = 0;
+			Robot.MotorIsOn = 0;
 		}
 		else
 		{
 			PIDAPositonController_Update(&PidPos, Robot.QX , Robot.Position);
-			PIDAVelocityController_Update(&PidVelo, Robot.QV, Robot.Velocity);
+			PIDAVelocityController_Update(&PidVelo, Robot.QV + PidPos.ControllerOut, Robot.Velocity);
 			invTFOutput = InverseTFofMotor(traject.QV,traject.QVP);
-			PWMCHECKER = PidVelo.ControllerOut +invTFOutput;
+			PWMCHECKER = PidVelo.ControllerOut + invTFOutput;
 			Drivemotor(PWMCHECKER);
 		}
 	}
@@ -845,7 +848,6 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 
 void UARTstateManagement(uint8_t *Mainbuffer)
 {
-	uint16_t rxDatalen = newPos - oldPos;
 	switch (UARTState)
 	{
 		case AwaitSethome:
@@ -924,6 +926,7 @@ void UARTstateManagement(uint8_t *Mainbuffer)
 					modeNo = 8;
 					if(doingTaskFlag == 0){
 					goingToGoalFlag = 0;
+					Robot.MotorIsOn = 1;
 					Robot.flagStartTime = 1;
 					Robot.RunningFlag = 1;
 					doingTaskFlag = 1;
@@ -1044,7 +1047,6 @@ void RobotstateManagement()
 		case init:
 			// Reset all Parameter
 			Robotinit(&Robot);
-			Robot.MotorIsOn = 1;
 			// Start Finding home Position
 			Robot.flagSethome = 1;
 			// Turn 360 Deg
@@ -1079,10 +1081,9 @@ void RobotstateManagement()
 					KalmanMatrixReset(&KalmanVar, Pvar);
 					Robotinit(&Robot);
 					// Reset Pid
-					PIDVelocityController_Init(&PidVelo);
-					PIDVelocityController_Init(&PidPos);
+					PIDAController_Init(&PidVelo);
+					PIDAController_Init(&PidPos);
 					// Start Motor
-					Robot.MotorIsOn = 1;
 					FlagAckFromUART = 1;
 					UARTState = MCUConnect;
 					RobotState = NormalOperation;
@@ -1091,6 +1092,7 @@ void RobotstateManagement()
 			break;
 		case NormalOperation:
 			if(doingTaskFlag == 1 && Robot.RunningFlag == 1 && endEffFlag == 0){
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, GPIO_PIN_SET);
 				if(goalFlag == 1 && goingToGoalFlag == 0){
 					goingToGoalFlag = 1;
 					Robot.GoalPositon = uartPos;
@@ -1174,6 +1176,7 @@ void EndEffstateManagement()
 				I2CWriteFcn(I2CTxDataBuffer);
 				openLaserWriteFlag = 0;
 				endEffLoopTime = Micros();
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, GPIO_PIN_SET);
 			}
 			if(hi2c1.State == HAL_I2C_STATE_READY && Micros() - endEffLoopTime > 5000)
 			{
@@ -1198,6 +1201,7 @@ void EndEffstateManagement()
 				I2CEndEffectorReadFlag =  1;
 				if(I2CRxDataBuffer[0] == 0x78)
 				{
+					HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, GPIO_PIN_RESET);
 					EndEffState = idle;
 					EndEffStatus = AwaitCommand;
 					RobotState = NormalOperation;
@@ -1210,6 +1214,7 @@ void EndEffstateManagement()
 							doingTaskFlag = 0;
 						}
 						else{
+							Robot.MotorIsOn = 1;
 							Robot.RunningFlag = 1;
 							Robot.flagStartTime = 1;
 						}
@@ -1242,9 +1247,10 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
 	if(GPIO_Pin == GPIO_PIN_13)
 	{
-		I2CEndEffectorWriteFlag = 1;
-		I2CEndEffectorReadFlag =  1;
-		EndEffState = CheckBeforRun;
+//		I2CEndEffectorWriteFlag = 1;
+//		I2CEndEffectorReadFlag =  1;
+//		EndEffState = CheckBeforRun;
+		HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_3);
 	}
 	if(GPIO_Pin == GPIO_PIN_10)
 	{
@@ -1267,21 +1273,24 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 			}
 		}
 //		HAL_GPIO_WritePin(GPIOx, GPIO_Pin, PinState)
-		HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_3);
+//		HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_4);
 	}
 	if(GPIO_Pin == GPIO_PIN_5)
 	{
 //		HAL_GPIO_WritePin(GPIOx, GPIO_Pin, PinState)
-		HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_5)
+//		HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_5)
 		if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_5) == GPIO_PIN_SET)
 		{
 			RobotState = NormalOperation;
+			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
 		}
 		else
 		{
+			checkemer++;
 			RobotState = Emergency;
+			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
 		}
-		HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_4);
+//		HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_4);
 	}
 }
 void RobotRunToPositon(float Destination)
@@ -1289,8 +1298,10 @@ void RobotRunToPositon(float Destination)
 	Robot.GoalPositon = Destination;
 	CoefficientAndTimeCalculation(&traject,Robot.Position,Robot.GoalPositon);
 	// Start Trajectory Evaluator
+	Robot.MotorIsOn = 1;
 	Robot.flagStartTime = 1;
 	Robot.RunningFlag = 1;
+	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, GPIO_PIN_SET);
 }
 
 void TIM_ResetCounter(TIM_TypeDef* TIMx)
