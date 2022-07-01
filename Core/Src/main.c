@@ -754,15 +754,6 @@ void ControllLoopAndErrorHandler()
 	}
 }
 
-void RobotRunToPositon(float Destination)
-{
-	Robot.GoalPositon = Destination;
-	CoefficientAndTimeCalculation(&traject,Robot.Position,Robot.GoalPositon);
-	// Start Trajectory Evaluator
-	Robot.flagStartTime = 1;
-	Robot.RunningFlag = 1;
-}
-
 /* Initialize the Ring Buffer */
 void Ringbuf_Init (void)
 {
