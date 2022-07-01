@@ -205,7 +205,7 @@ static void MX_TIM1_Init(void);
 static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
 uint64_t Micros();
-uint32_t Int32Abs(int32_t PWM);
+uint32_t Int32Abs(int32_t number);
 void Drivemotor(int32_t PWM);
 void EncoderRead();
 void ControllLoopAndErrorHandler();
@@ -636,6 +636,15 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+uint32_t Int32Abs(int32_t number)
+{
+	if(number<0){
+		return number*-1;
+	}else{
+		return number;
+	}
+}
+
 void EncoderRead()
 {
 	static int32_t SignalThreshold = 0.6*12000;
@@ -653,16 +662,6 @@ void EncoderRead()
 	PositionDeg[1] = PositionDeg[0];
 }
 
-uint32_t Int32Abs(int32_t PWM)
-{
-	if(PWM<0){
-		return PWM*-1;
-	}else{
-		return PWM;
-	}
-}
-
-
 void Drivemotor(int32_t PWM){
 		if(PWM<=0 && PWM>=-PWM_MAX){
 			htim1.Instance->CCR1=Int32Abs(PWM);
@@ -677,6 +676,19 @@ void Drivemotor(int32_t PWM){
 			htim1.Instance->CCR1=PWM_MAX;
 			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_9,1);
 		}
+}
+
+float InverseTFofMotor(float Velo, float PredictVelo)
+{
+	static float VeloLast = 0;
+	static float Voltage = 0;
+	static float VoltageLast = 0;
+	static float Pwm = 0;
+	Voltage = (PredictVelo - (1.298649403776808*Velo) + (0.413830007244888*VeloLast) - (0.492093238713741*VoltageLast))/0.660367603263632;
+	Pwm = (Voltage * 10000.0)/12.0;
+	VoltageLast = Voltage;
+	VeloLast = Velo;
+	return Pwm;
 }
 
 
@@ -727,8 +739,8 @@ void ControllLoopAndErrorHandler()
 		{
 			PIDAPositonController_Update(&PidPos, Robot.QX , Robot.Position);
 			PIDAVelocityController_Update(&PidVelo, Robot.QV, Robot.Velocity);
-			invTFOutput = InverseTFofMotor(traject.QV,traject.QVP);
-			PWMCHECKER = PidVelo.ControllerOut +invTFOutput;
+//			invTFOutput = InverseTFofMotor(traject.QV,traject.QVP);
+			PWMCHECKER = PidVelo.ControllerOut;
 			Drivemotor(PWMCHECKER);
 		}
 	}
@@ -739,27 +751,13 @@ void ControllLoopAndErrorHandler()
 	}
 }
 
-float InverseTFofMotor(float Velo, float PredictVelo)
+void RobotRunToPositon(float Destination)
 {
-	static float VeloLast = 0;
-	static float Voltage = 0;
-	static float VoltageLast = 0;
-	static float Pwm = 0;
-	Voltage = (PredictVelo - (1.298649403776808*Velo) + (0.413830007244888*VeloLast) - (0.492093238713741*VoltageLast))/0.660367603263632;
-	Pwm = (Voltage * 10000.0)/12.0;
-	VoltageLast = Voltage;
-	VeloLast = Velo;
-	return Pwm;
-}
-
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
-	if (htim == &htim11) {
-		_micro += 65535;
-	}
-}
-
-uint64_t Micros(){
-	return _micro + TIM11->CNT;
+	Robot.GoalPositon = Destination;
+	CoefficientAndTimeCalculation(&traject,Robot.Position,Robot.GoalPositon);
+	// Start Trajectory Evaluator
+	Robot.flagStartTime = 1;
+	Robot.RunningFlag = 1;
 }
 
 /* Initialize the Ring Buffer */
@@ -1079,8 +1077,8 @@ void RobotstateManagement()
 					KalmanMatrixReset(&KalmanVar, Pvar);
 					Robotinit(&Robot);
 					// Reset Pid
-					PIDVelocityController_Init(&PidVelo);
-					PIDVelocityController_Init(&PidPos);
+					PIDAController_Init(&PidVelo);
+					PIDAController_Init(&PidPos);
 					// Start Motor
 					Robot.MotorIsOn = 1;
 					FlagAckFromUART = 1;
@@ -1116,21 +1114,6 @@ void RobotstateManagement()
 		case Emergency:
 			// Luv u pls pass
 			break;
-	}
-}
-
-void I2CWriteFcn(uint8_t *Wdata) {
-	if (I2CEndEffectorWriteFlag == 1  && hi2c1.State == HAL_I2C_STATE_READY) {
-		static uint8_t data[EndEffRxBuf_SIZE];
-		memcpy ((uint8_t *)data, (uint8_t *)Wdata, EndEffRxBuf_SIZE);
-		HAL_I2C_Master_Transmit_IT(&hi2c1, Endeff_ADDR, data, I2CTxDataLen);
-		I2CEndEffectorWriteFlag = 0;
-	}
-}
-void I2CReadFcn(uint8_t *Rdata) {
-	if (I2CEndEffectorReadFlag == 1 && hi2c1.State == HAL_I2C_STATE_READY) {
-		HAL_I2C_Master_Receive_IT(&hi2c1, Endeff_ADDR, Rdata, I2CRxDataLen);
-		I2CEndEffectorReadFlag =  0;
 	}
 }
 
@@ -1238,6 +1221,21 @@ void EndEffstateManagement()
 	}
 }
 
+void I2CWriteFcn(uint8_t *Wdata) {
+	if (I2CEndEffectorWriteFlag == 1  && hi2c1.State == HAL_I2C_STATE_READY) {
+		static uint8_t data[EndEffRxBuf_SIZE];
+		memcpy ((uint8_t *)data, (uint8_t *)Wdata, EndEffRxBuf_SIZE);
+		HAL_I2C_Master_Transmit_IT(&hi2c1, Endeff_ADDR, data, I2CTxDataLen);
+		I2CEndEffectorWriteFlag = 0;
+	}
+}
+void I2CReadFcn(uint8_t *Rdata) {
+	if (I2CEndEffectorReadFlag == 1 && hi2c1.State == HAL_I2C_STATE_READY) {
+		HAL_I2C_Master_Receive_IT(&hi2c1, Endeff_ADDR, Rdata, I2CRxDataLen);
+		I2CEndEffectorReadFlag =  0;
+	}
+}
+
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
 	if(GPIO_Pin == GPIO_PIN_13)
@@ -1272,7 +1270,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 	if(GPIO_Pin == GPIO_PIN_5)
 	{
 //		HAL_GPIO_WritePin(GPIOx, GPIO_Pin, PinState)
-		HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_5)
+//		HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_5)
 		if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_5) == GPIO_PIN_SET)
 		{
 			RobotState = NormalOperation;
@@ -1284,14 +1282,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 		HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_4);
 	}
 }
-void RobotRunToPositon(float Destination)
-{
-	Robot.GoalPositon = Destination;
-	CoefficientAndTimeCalculation(&traject,Robot.Position,Robot.GoalPositon);
-	// Start Trajectory Evaluator
-	Robot.flagStartTime = 1;
-	Robot.RunningFlag = 1;
-}
 
 void TIM_ResetCounter(TIM_TypeDef* TIMx)
 {
@@ -1300,6 +1290,16 @@ void TIM_ResetCounter(TIM_TypeDef* TIMx)
 
   /* Reset the Counter Register value */
   TIMx->CNT = 0;
+}
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
+	if (htim == &htim11) {
+		_micro += 65535;
+	}
+}
+
+uint64_t Micros(){
+	return _micro + TIM11->CNT;
 }
 /* USER CODE END 4 */
 
