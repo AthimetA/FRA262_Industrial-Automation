@@ -142,6 +142,7 @@ uint8_t ACK_2[2] = { 70, 0b01101110 };
  uint8_t homingFlag = 0;
  uint8_t doingTaskFlag = 0;
  uint8_t goingToGoalFlag = 0;
+ uint8_t openLaserWriteFlag = 0;
 
  uint8_t modeNo = 0;
  uint8_t modeByte = 0;
@@ -149,8 +150,9 @@ uint8_t ACK_2[2] = { 70, 0b01101110 };
  // ---------------------------------UART--------------------------------- //
  // ---------------------------------CTRL--------------------------------- //
 /* Setup Microsec */
-uint64_t ControlLoopTime = 0;
-uint64_t _micro = 0;
+ uint64_t endEffLoopTime = 0;
+ uint64_t ControlLoopTime = 0;
+ uint64_t _micro = 0;
 /* Setup EncoderData */
 int EncoderRawData[2] = {0};
 int WrappingStep = 0;
@@ -1042,13 +1044,12 @@ void UARTstateManagement(uint8_t *Mainbuffer)
 				// Mode 8
 				case 0b10011000:
 					modeNo = 8;
-					if(doingTaskFlag == 0)
-					{
-					goalIDX = 0;
+					if(doingTaskFlag == 0){
 					goingToGoalFlag = 0;
 					Robot.flagStartTime = 1;
 					Robot.RunningFlag = 1;
 					doingTaskFlag = 1;
+					goalIDX = 0;
 					}
 					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
 					break;
@@ -1057,7 +1058,7 @@ void UARTstateManagement(uint8_t *Mainbuffer)
 					modeNo = 9;
 					FlagAckFromUART = 0;
 					Robot.CurrentStation = 0;
-					if(doingTaskFlag == 1){
+					if(doingTaskFlag == 1 || Robot.RunningFlag == 1){
 						memcpy(sendData, ACK_1, 2);
 						sendData[2] = 153; // start-mode
 						sendData[4] = Robot.CurrentStation; // set current goal
@@ -1081,13 +1082,13 @@ void UARTstateManagement(uint8_t *Mainbuffer)
 					posData = (uint16_t)(((((Robot.Position)*10000.0)*M_PI)/180.0));
 //					static uint16_t pos = 0; // robot.position mini
 //					posData = (uint16_t)(((((pos)*10000.0)*M_PI)/180.0));
-					if(endEffFlag == 0){
+					if(endEffFlag == 0 && doingTaskFlag == 1){
 						if(AbsVal(Robot.GoalPositon - Robot.Position) < 0.5 && AbsVal(Robot.Velocity) < 1.0){
 							endEffFlag = 1;
 							goingToGoalFlag = 0;
 						}
 					}
-					if(doingTaskFlag == 1){
+					if(doingTaskFlag == 1 || Robot.RunningFlag == 1){
 						memcpy(sendData, ACK_1, 2);
 						sendData[2] = 154; // start-mode
 						sendData[3] = (posData) >> 8 ; // set high byte posData
@@ -1117,7 +1118,7 @@ void UARTstateManagement(uint8_t *Mainbuffer)
 					modeNo = 11;
 					FlagAckFromUART = 0;
 					veloData = (uint16_t)((((Robot.Velocity*30.0)/M_PI)/10.0)*255.0);
-					if(doingTaskFlag == 1){
+					if(doingTaskFlag == 1 || Robot.RunningFlag == 1){
 						memcpy(sendData, ACK_1, 2);
 						sendData[2] = 155;
 						sendData[4] = veloData >> 8; // set low byte posData
@@ -1136,6 +1137,10 @@ void UARTstateManagement(uint8_t *Mainbuffer)
 				// Mode 12
 				case 0b10011100:
 					modeNo = 12;
+					RobotState = EndEff;
+					I2CEndEffectorWriteFlag = 1;
+					I2CEndEffectorReadFlag =  1;
+					EndEffState = CheckBeforRun;
 					endEffFlag = 1;
 					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
 					break;
@@ -1217,7 +1222,7 @@ void RobotstateManagement()
 				}
 				else if(goalFlag == 2 && goingToGoalFlag == 0){
 					goingToGoalFlag = 1;
-					Robot.GoalPositon = goalDeg[uartGoal[goalIDX]];
+					Robot.GoalPositon = goalDeg[uartGoal[goalIDX]-1];
 					CoefficientAndTimeCalculation(&traject,Robot.Position,Robot.GoalPositon);
 				}
 			}
@@ -1272,17 +1277,13 @@ void EndEffstateManagement()
 					if(I2CRxDataBuffer[0] == 0x78)
 					{
 						EndEffState = OpenLaser;
+						openLaserWriteFlag = 1;
 						I2CEndEffectorWriteFlag = 1;
 						I2CEndEffectorReadFlag =  0;
-
-						if(doingTaskFlag == 1){
-							goalIDX++;
-						}
 					}
 					else
 					{
 						EndEffState = idle;
-//						HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
 					}
 				}
 			}
@@ -1290,9 +1291,13 @@ void EndEffstateManagement()
 		break;
 		case OpenLaser:
 			// Open Laser
-			I2CTxDataBuffer[0] = 0x45;
-			I2CWriteFcn(I2CTxDataBuffer);
-			if(hi2c1.State == HAL_I2C_STATE_READY)
+			if(openLaserWriteFlag == 1){
+				I2CTxDataBuffer[0] = 0x45;
+				I2CWriteFcn(I2CTxDataBuffer);
+				openLaserWriteFlag = 0;
+				endEffLoopTime = Micros();
+			}
+			if(hi2c1.State == HAL_I2C_STATE_READY && Micros() - endEffLoopTime > 5000)
 			{
 				EndEffState = SetupReadStatus;
 				I2CEndEffectorWriteFlag = 1;
@@ -1318,13 +1323,19 @@ void EndEffstateManagement()
 					EndEffState = idle;
 					EndEffStatus = AwaitCommand;
 					RobotState = NormM;
-					if(goalIDX > goalAmount-1){
-						goalIDX = 0;
-						goalFlag = 0;
-						doingTaskFlag = 0;
-					}
-					else Robot.RunningFlag = 1;
 					endEffFlag = 0;
+					if(doingTaskFlag == 1){
+						goalIDX++;
+						if(goalIDX > goalAmount-1){
+							goalIDX = 0;
+							goalFlag = 0;
+							doingTaskFlag = 0;
+						}
+						else{
+							Robot.RunningFlag = 1;
+							Robot.flagStartTime = 1;
+						}
+					}
 				}
 				else if(I2CRxDataBuffer[0] == 0x12)
 				{
@@ -1351,10 +1362,13 @@ void EndEffstateManagement()
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-//	if(GPIO_Pin == GPIO_PIN_13)
-//	{
-//		HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
-//	}
+	if(GPIO_Pin == GPIO_PIN_13)
+	{
+		RobotState = EndEff;
+		I2CEndEffectorWriteFlag = 1;
+		I2CEndEffectorReadFlag =  1;
+		EndEffState = CheckBeforRun;
+	}
 	if(GPIO_Pin == GPIO_PIN_10)
 	{
 		// Proxi Sensor
