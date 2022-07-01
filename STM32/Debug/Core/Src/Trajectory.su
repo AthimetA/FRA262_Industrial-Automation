@@ -1,5 +1,0 @@
-../Core/Src/Trajectory.c:11:6:Robotinit	16	static
-../Core/Src/Trajectory.c:29:6:RobotSetHome	16	static
-../Core/Src/Trajectory.c:34:7:AbsVal	16	static
-../Core/Src/Trajectory.c:46:6:CoefficientAndTimeCalculation	40	static
-../Core/Src/Trajectory.c:178:6:TrajectoryEvaluation	32	static
