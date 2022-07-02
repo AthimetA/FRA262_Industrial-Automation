@@ -717,6 +717,7 @@ void ControllLoopAndErrorHandler()
 	}
 	else if (Robot.flagStartTime == 2)
 	{
+		// Freeze Trajectory time
 		StartTime = StartTime + Micros();
 	}
 	CurrentTime = Micros();
@@ -1270,13 +1271,9 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 				Robot.flagSethome = 2;
 			}
 		}
-//		HAL_GPIO_WritePin(GPIOx, GPIO_Pin, PinState)
-//		HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_4);
 	}
 	if(GPIO_Pin == GPIO_PIN_5)
 	{
-//		HAL_GPIO_WritePin(GPIOx, GPIO_Pin, PinState)
-//		HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_5)
 		if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_5) == GPIO_PIN_SET)
 		{
 			RobotState = NormalOperation;
@@ -1289,7 +1286,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 			RobotState = Emergency;
 			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
 		}
-//		HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_4);
 	}
 }
 void RobotRunToPositon(float Destination)
