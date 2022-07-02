@@ -116,7 +116,6 @@ uint8_t ACK_2[2] = { 70, 0b01101110 };
  uint8_t goalAmount = 0;
  int8_t goalIDX = 0;
  uint8_t goalFlag = 0; // 1 = Angular Pos, 2 = Single Goal, Multi Goal
- uint8_t reachedGoalFlag = 0;
  uint8_t endEffFlag = 0;
  uint8_t homingFlag = 0;
  uint8_t doingTaskFlag = 0;
@@ -128,6 +127,8 @@ uint8_t ACK_2[2] = { 70, 0b01101110 };
  // ---------------------------------UART--------------------------------- //
  // ---------------------------------CTRL--------------------------------- //
  uint64_t _micro = 0;
+
+ uint64_t check[6] = {0};
 /* Setup EncoderData */
 int EncoderRawData[2] = {0};
 int WrappingStep = 0;
@@ -179,6 +180,8 @@ static uint64_t PredictTime =0;
 static uint64_t CheckLoopStartTime =0;
 static uint64_t CheckLoopStopTime =0;
 static uint64_t CheckLoopDiffTime =0;
+static uint64_t EmergencycalloutTime =0;
+uint8_t EmertimeoutFlag =0;
 uint64_t endEffLoopTime = 0;
 uint64_t ControlLoopTime = 0;
 
@@ -212,7 +215,7 @@ void EncoderRead();
 void ControllLoopAndErrorHandler();
 void I2CWriteFcn(uint8_t *Wdata);
 void I2CReadFcn(uint8_t *Rdata);
-void RobotRunToPositon(float Destination);
+void RobotRunToPositon(float Destination , float VeloInput);
 void TIM_ResetCounter(TIM_TypeDef* TIMx);
 void EndeffLaserOpen();
 void EndeffLaserReadStatus();
@@ -623,7 +626,7 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin : Pin_Emer_Pin */
   GPIO_InitStruct.Pin = Pin_Emer_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(Pin_Emer_GPIO_Port, &GPIO_InitStruct);
 
@@ -1022,7 +1025,7 @@ void UARTstateManagement(uint8_t *Mainbuffer)
 				// Mode 14
 				case 0b10011110:
 					modeNo = 14;
-					RobotRunToPositon(Robot.HomePositon);
+					RobotRunToPositon(Robot.HomePositon,51.0);
 					homingFlag = 1;
 					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
 					break;
@@ -1040,7 +1043,7 @@ void RobotstateManagement()
 			// Start Finding home Position
 			Robot.flagSethome = 1;
 			// Turn 360 Deg
-			RobotRunToPositon(360.0);
+			RobotRunToPositon(360.0,51.0);
 			// Goto next State
 			RobotState = FindHome;
 			break;
@@ -1049,7 +1052,7 @@ void RobotstateManagement()
 			{
 				if(Robot.flagSethome == 2)
 				{
-					RobotRunToPositon(Robot.HomePositon);
+					RobotRunToPositon(Robot.HomePositon,51.0);
 					Robot.RunningFlag = 1;
 					Robot.flagSethome = 3;
 				}
@@ -1101,16 +1104,15 @@ void RobotstateManagement()
 				I2CEndEffectorReadFlag =  1;
 				EndEffState = CheckBeforRun;
 			}
+
 			break;
 		case EndEff:
 			EndEffstateManagement();
 			break;
 		case Emergency:
-			if(Robot.MotorIsOn == 1)
-			{
-				Robot.flagStartTime = 2;
-			}
 			Robot.MotorIsOn = 0;
+			PIDAController_Init(&PidVelo);
+			PIDAController_Init(&PidPos);
 			// Luv u pls pass
 			break;
 	}
@@ -1129,13 +1131,16 @@ void EndEffstateManagement()
 			// Set up Read
 			I2CTxDataBuffer[0] = 0x23;
 			I2CWriteFcn(I2CTxDataBuffer);
+			check[0]++;
 			if(hi2c1.State == HAL_I2C_STATE_READY)
 			{
 				I2CReadFcn(I2CRxDataBuffer);
+				check[1]++;
 				if(hi2c1.State == HAL_I2C_STATE_READY)
 				{
 					if(I2CRxDataBuffer[0] == 0x78)
 					{
+						check[2]++;
 						EndEffState = OpenLaser;
 						openLaserWriteFlag = 1;
 						I2CEndEffectorWriteFlag = 1;
@@ -1143,6 +1148,7 @@ void EndEffstateManagement()
 					}
 					else
 					{
+						check[3]++;
 						EndEffState = idle;
 					}
 				}
@@ -1152,13 +1158,14 @@ void EndEffstateManagement()
 		case OpenLaser:
 			// Open Laser
 			if(openLaserWriteFlag == 1){
+				check[4]++;
 				I2CTxDataBuffer[0] = 0x45;
 				I2CWriteFcn(I2CTxDataBuffer);
 				openLaserWriteFlag = 0;
 				endEffLoopTime = Micros();
 				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, GPIO_PIN_SET);
 			}
-			if(hi2c1.State == HAL_I2C_STATE_READY && Micros() - endEffLoopTime > 5000)
+			if(hi2c1.State == HAL_I2C_STATE_READY && Micros() - endEffLoopTime > 10000)
 			{
 				EndEffState = SetupReadStatus;
 				I2CEndEffectorWriteFlag = 1;
@@ -1181,6 +1188,7 @@ void EndEffstateManagement()
 				I2CEndEffectorReadFlag =  1;
 				if(I2CRxDataBuffer[0] == 0x78)
 				{
+					check[5]++;
 					HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, GPIO_PIN_RESET);
 					EndEffState = idle;
 					EndEffStatus = AwaitCommand;
@@ -1268,27 +1276,35 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 			}
 		}
 	}
-	if(GPIO_Pin == GPIO_PIN_5)
+	if(GPIO_Pin == GPIO_PIN_5 && EmertimeoutFlag == 0) // sad emergency button
 	{
-		if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_5) == GPIO_PIN_SET)
-		{
-			RobotState = NormalOperation;
-			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
-			// From 2 Back to 0 (Stop Trajectory time pause)
-			Robot.flagStartTime = 0;
-			Robot.MotorIsOn = 1;
-		}
-		else
-		{
-			RobotState = Emergency;
-			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
+		if(Micros() - EmergencycalloutTime > 10000){
+			EmergencycalloutTime = Micros();
+			EmertimeoutFlag = 1;
+			if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_5) == GPIO_PIN_SET)
+			{
+				RobotState = NormalOperation;
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
+				if(doingTaskFlag == 1 && goingToGoalFlag == 1)
+				{
+					RobotRunToPositon(Robot.GoalPositon,Robot.QVMax);
+				}
+			}
+			else
+			{
+				RobotState = Emergency;
+				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
+			}
 		}
 	}
+	else{
+		EmertimeoutFlag = 0;
+	}
 }
-void RobotRunToPositon(float Destination)
+void RobotRunToPositon(float Destination , float VeloInput)
 {
 	Robot.GoalPositon = Destination;
-	Robot.QVMax = 60.0;
+	Robot.QVMax = VeloInput;
 	CoefficientAndTimeCalculation(&traject,Robot.Position,Robot.GoalPositon,Robot.QVMax);
 	// Start Trajectory Evaluator
 	Robot.MotorIsOn = 1;
