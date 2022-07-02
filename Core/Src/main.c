@@ -715,11 +715,6 @@ void ControllLoopAndErrorHandler()
 		StartTime = Micros();
 		Robot.flagStartTime = 0;
 	}
-	else if (Robot.flagStartTime == 2)
-	{
-		// Freeze Trajectory time
-		StartTime = StartTime + Micros();
-	}
 	CurrentTime = Micros();
 	PredictTime = CurrentTime + 10000;
 	TrajectoryEvaluation(&traject,StartTime,CurrentTime,PredictTime);
@@ -1115,6 +1110,7 @@ void RobotstateManagement()
 			{
 				Robot.flagStartTime = 2;
 			}
+			Robot.MotorIsOn = 0;
 			// Luv u pls pass
 			break;
 	}
@@ -1280,6 +1276,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
 			// From 2 Back to 0 (Stop Trajectory time pause)
 			Robot.flagStartTime = 0;
+			Robot.MotorIsOn = 1;
 		}
 		else
 		{
