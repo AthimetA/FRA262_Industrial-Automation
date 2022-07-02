@@ -53,8 +53,10 @@ void CoefficientAndTimeCalculation(TrajectoryG *traject, float Qinitial, float Q
 
 	// Set Vmax Amax Jmax
 	traject -> Vmax = 0.0;
-	traject -> Amax = 28.64789;
-	traject -> Jmax = 572.957795 ;
+//	traject -> Amax = 28.64789;
+//	traject -> Jmax = 572.957795 ;
+	traject -> Amax = 21.77;
+	traject -> Jmax = 114.59 ;
 	float gain = 0.0;
 	if(traject -> QRelative < 0.0)
 	{
@@ -69,11 +71,13 @@ void CoefficientAndTimeCalculation(TrajectoryG *traject, float Qinitial, float Q
 
 	if(DistanceABS >= 130)
 	{
-		traject -> Vmax = 60;
+//		traject -> Vmax = 60;
+		traject -> Vmax = 51;
 	}
 	else
 	{
-		traject -> Vmax = (-0.0000003*(DistanceABS*DistanceABS*DistanceABS*DistanceABS))+(0.00009*(DistanceABS*DistanceABS*DistanceABS))-(0.0115*(DistanceABS*DistanceABS))+(0.995*DistanceABS)+7.1259;
+//		traject -> Vmax = (-0.0000003*(DistanceABS*DistanceABS*DistanceABS*DistanceABS))+(0.00009*(DistanceABS*DistanceABS*DistanceABS))-(0.0115*(DistanceABS*DistanceABS))+(0.995*DistanceABS)+7.1259;
+		traject -> Vmax = (-0.0000002*(DistanceABS*DistanceABS*DistanceABS*DistanceABS))+(0.00007*(DistanceABS*DistanceABS*DistanceABS))-(0.0092*(DistanceABS*DistanceABS))+(0.8419*DistanceABS)+4.8492;
 	}
 
 	if(traject -> Vmax > Veloinput)
