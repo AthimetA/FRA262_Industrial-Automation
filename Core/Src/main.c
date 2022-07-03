@@ -1379,6 +1379,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 			{
 				RobotRunToPositon(Robot.GoalPositon,Robot.QVMax);
 			}
+			if(Robot.flagSethome != 0){
+				RobotState = init;
+			}
 		}
 		else
 		{
