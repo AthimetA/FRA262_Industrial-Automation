@@ -101,7 +101,6 @@ float goalDeg[10] = {30, 60, 90, 120, 150, 180, 210, 240, 270, 300};
 static uint8_t RxBuf[RxBuf_SIZE];
 static uint8_t MainBuf[MainBuf_SIZE];
 static uint8_t TxBuf[TxBuf_SIZE];
-static uint8_t FlagAckFromUART = 0;
 static uint8_t stateSwitch = 0;
 static uint16_t oldPos = 0;
 static uint16_t newPos = 0;
@@ -122,6 +121,7 @@ uint8_t ACK_2[2] = { 70, 0b01101110 };
  uint8_t doingTaskFlag = 0;
  uint8_t goingToGoalFlag = 0;
  uint8_t openLaserWriteFlag = 0;
+ uint8_t notContinueFlag = 0;
  uint8_t modeNo = 0;
  uint8_t modeByte = 0;
 
@@ -246,8 +246,7 @@ int main(void)
 
   /* MCU Configuration--------------------------------------------------------*/
 
-  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-  HAL_Init();
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */  HAL_Init();
 
   /* USER CODE BEGIN Init */
 
@@ -986,7 +985,6 @@ void UARTstateManagement(uint8_t *Mainbuffer)
 				// Mode 9
 				case 0b10011001:
 					modeNo = 9;
-					FlagAckFromUART = 0;
 					Robot.CurrentStation = 0;
 					if(doingTaskFlag == 1 || Robot.RunningFlag == 1){
 						memcpy(TxBuf, ACK_1, 2);
@@ -1008,14 +1006,7 @@ void UARTstateManagement(uint8_t *Mainbuffer)
 				// Mode 10
 				case 0b10011010:
 					modeNo = 10;
-					FlagAckFromUART = 0;
 					posData = (uint16_t)(((((Robot.Position)*10000.0)*M_PI)/180.0));
-					if(endEffFlag == 0 && doingTaskFlag == 1){
-						if(AbsVal(Robot.GoalPositon - Robot.Position) < 0.5 && AbsVal(Robot.Velocity) < 1.0){
-							endEffFlag = 1;
-							goingToGoalFlag = 0;
-						}
-					}
 					if(doingTaskFlag == 1 || Robot.RunningFlag == 1){
 						memcpy(TxBuf, ACK_1, 2);
 						TxBuf[2] = 154; // start-mode
@@ -1044,7 +1035,6 @@ void UARTstateManagement(uint8_t *Mainbuffer)
 				// Mode 11
 				case 0b10011011:
 					modeNo = 11;
-					FlagAckFromUART = 0;
 					veloData = (((AbsVal(Robot.Velocity)/6.0)*255.0)/10.0);
 					if(doingTaskFlag == 1 || Robot.RunningFlag == 1){
 						memcpy(TxBuf, ACK_1, 2);
@@ -1113,13 +1103,18 @@ void RobotstateManagement()
 				else if(Robot.flagSethome == 3)
 				{
 					RobotResetAll();
-					FlagAckFromUART = 1;
 					UARTState = MCUConnect;
 					RobotState = NormalOperation;
 				}
 			}
 			break;
 		case NormalOperation:
+			if(notContinueFlag == 1){
+				Robot.MotorIsOn = 1;
+				Robot.RunningFlag = 1;
+				Robot.flagStartTime = 1;
+				notContinueFlag = 0;
+			}
 			if(doingTaskFlag == 1 && Robot.RunningFlag == 1 && endEffFlag == 0){
 				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, GPIO_PIN_SET);
 				if(goalFlag == 1 && goingToGoalFlag == 0){
@@ -1131,6 +1126,13 @@ void RobotstateManagement()
 					goingToGoalFlag = 1;
 					Robot.GoalPositon = goalDeg[uartGoal[goalIDX]-1];
 					CoefficientAndTimeCalculation(&traject,Robot.Position,Robot.GoalPositon,Robot.QVMax);
+				}
+			}
+
+			if(endEffFlag == 0 && goingToGoalFlag == 1 && doingTaskFlag == 1){
+				if(AbsVal(Robot.GoalPositon - Robot.Position) < 0.5 && AbsVal(Robot.Velocity) < 1.0){
+					endEffFlag = 1;
+					goingToGoalFlag = 0;
 				}
 			}
 
@@ -1226,8 +1228,10 @@ void EndEffstateManagement()
 					HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, GPIO_PIN_RESET);
 					EndEffState = idle;
 					EndEffStatus = AwaitCommand;
-					if(RobotState != Emergency)	RobotState = NormalOperation;
 					endEffFlag = 0;
+					if(RobotState != Emergency){
+						RobotState = NormalOperation;
+					}
 					if(doingTaskFlag == 1){
 						goalIDX++;
 						if(goalIDX > goalAmount-1){
@@ -1236,9 +1240,7 @@ void EndEffstateManagement()
 							doingTaskFlag = 0;
 						}
 						else{
-							Robot.MotorIsOn = 1;
-							Robot.RunningFlag = 1;
-							Robot.flagStartTime = 1;
+							notContinueFlag = 1;
 						}
 					}
 				}
@@ -1382,7 +1384,14 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 		if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_5) == GPIO_PIN_SET)
 		{
 			check[7]++;
-			RobotState = NormalOperation;
+			if(EndEffState != idle)
+			{
+				RobotState = EndEff;
+			}
+			else
+			{
+				RobotState = NormalOperation;
+			}
 			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
 			if((doingTaskFlag == 1 && goingToGoalFlag == 1) || homingFlag == 1)
 			{
