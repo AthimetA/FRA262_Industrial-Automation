@@ -226,6 +226,7 @@ void UARTstateManagement(uint8_t *Mainbuffer);
 void RobotstateManagement();
 void EndEffstateManagement();
 float InverseTFofMotor(float Velo, float PredictVelo);
+void RobotResetAll();
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -279,6 +280,8 @@ int main(void)
   PositionRaw=EncoderRawData[0];
   PIDAController_Init(&PidVelo);
   PIDAController_Init(&PidPos);
+  // Reset all Parameter
+  Robotinit(&Robot);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -1091,8 +1094,6 @@ void RobotstateManagement()
 	switch (RobotState)
 	{
 		case init:
-			// Reset all Parameter
-			Robotinit(&Robot);
 			// Start Finding home Position
 			Robot.flagSethome = 1;
 			// Turn 360 Deg
@@ -1111,25 +1112,7 @@ void RobotstateManagement()
 				}
 				else if(Robot.flagSethome == 3)
 				{
-					// Reset Encoder
-					TIM_ResetCounter(TIM2);
-					EncoderRawData[0] = 0;
-					EncoderRawData[1] = 0;
-					WrappingStep = 0;
-					// Reset Trajectory
-					CoefficientAndTimeCalculation(&traject,0.0,0.0,60);
-					Robot.flagStartTime = 1;
-					StartTime = 0;
-					CurrentTime = 0;
-					// Reset Position
-					PositionDeg[0] = 0;
-					PositionDeg[1] = 0;
-					KalmanMatrixReset(&KalmanVar, Pvar);
-					Robotinit(&Robot);
-					// Reset Pid
-					PIDAController_Init(&PidVelo);
-					PIDAController_Init(&PidPos);
-					// Start Motor
+					RobotResetAll();
 					FlagAckFromUART = 1;
 					UARTState = MCUConnect;
 					RobotState = NormalOperation;
@@ -1243,7 +1226,7 @@ void EndEffstateManagement()
 					HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, GPIO_PIN_RESET);
 					EndEffState = idle;
 					EndEffStatus = AwaitCommand;
-					RobotState = NormalOperation;
+					if(RobotState != Emergency)	RobotState = NormalOperation;
 					endEffFlag = 0;
 					if(doingTaskFlag == 1){
 						goalIDX++;
@@ -1356,6 +1339,32 @@ void RobotRunToPositon(float Destination , float VeloInput)
 	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, GPIO_PIN_SET);
 }
 
+void RobotResetAll()
+{
+	// Reset Encoder
+	TIM_ResetCounter(TIM2);
+	EncoderRawData[0] = 0;
+	EncoderRawData[1] = 0;
+	WrappingStep = 0;
+	// Reset Trajectory
+	CoefficientAndTimeCalculation(&traject,0.0,0.0,60);
+	Robot.flagStartTime = 1;
+	StartTime = 0;
+	CurrentTime = 0;
+	// Reset Position
+	PositionDeg[0] = 0;
+	PositionDeg[1] = 0;
+	KalmanMatrixReset(&KalmanVar, Pvar);
+	Robotinit(&Robot);
+	// Reset Pid
+	PIDAController_Init(&PidVelo);
+	PIDAController_Init(&PidPos);
+	// Reset Home Buffer
+	homePoint[0] = 0;
+	homePoint[1] = 0;
+	homeFF = 0;
+}
+
 void TIM_ResetCounter(TIM_TypeDef* TIMx)
 {
   /* Check the parameters */
@@ -1379,8 +1388,15 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 			{
 				RobotRunToPositon(Robot.GoalPositon,Robot.QVMax);
 			}
-			if(Robot.flagSethome != 0){
+			if(Robot.flagSethome == 1){
+				RobotResetAll();
 				RobotState = init;
+			}
+			else if(Robot.flagSethome == 2 || Robot.flagSethome == 3)
+			{
+				Robot.flagSethome = 3;
+				RobotRunToPositon(Robot.HomePositon,Robot.QVMax);
+				RobotState = FindHome;
 			}
 		}
 		else
