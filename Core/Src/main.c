@@ -75,6 +75,7 @@
 
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
+TIM_HandleTypeDef htim5;
 TIM_HandleTypeDef htim11;
 
 UART_HandleTypeDef huart2;
@@ -208,6 +209,7 @@ static void MX_I2C1_Init(void);
 static void MX_TIM11_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_TIM2_Init(void);
+static void MX_TIM5_Init(void);
 /* USER CODE BEGIN PFP */
 uint64_t Micros();
 uint32_t Int32Abs(int32_t number);
@@ -265,6 +267,7 @@ int main(void)
   MX_TIM11_Init();
   MX_TIM1_Init();
   MX_TIM2_Init();
+  MX_TIM5_Init();
   /* USER CODE BEGIN 2 */
   Ringbuf_Init();
   KalmanMatrixInit(&KalmanVar);
@@ -285,6 +288,7 @@ int main(void)
 	  timeElapsed[0] = Micros();
 	  timeElapsed[1] = HAL_GetTick();
 	  RobotstateManagement();
+	  EndEffstateManagement();
 	  if(Micros() - ControlLoopTime >= 10000)
 	  {
 		ControlLoopTime  = Micros();
@@ -495,6 +499,51 @@ static void MX_TIM2_Init(void)
   /* USER CODE BEGIN TIM2_Init 2 */
 
   /* USER CODE END TIM2_Init 2 */
+
+}
+
+/**
+  * @brief TIM5 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM5_Init(void)
+{
+
+  /* USER CODE BEGIN TIM5_Init 0 */
+
+  /* USER CODE END TIM5_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM5_Init 1 */
+
+  /* USER CODE END TIM5_Init 1 */
+  htim5.Instance = TIM5;
+  htim5.Init.Prescaler = 99;
+  htim5.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim5.Init.Period = 99999;
+  htim5.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim5.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim5) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim5, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim5, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM5_Init 2 */
+
+  /* USER CODE END TIM5_Init 2 */
 
 }
 
@@ -1110,7 +1159,6 @@ void RobotstateManagement()
 			}
 			break;
 		case EndEff:
-			EndEffstateManagement();
 			break;
 		case Emergency:
 			Robot.MotorIsOn = 0;
@@ -1279,64 +1327,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 			}
 		}
 	}
-//	if(GPIO_Pin == GPIO_PIN_5 && EmertimeoutFlag == 0) // sad emergency button
-//	{
-//		if(Micros() - EmergencycalloutTime > 10000){
-//			check[6]++;
-//			EmergencycalloutTime = Micros();
-//			EmertimeoutFlag = 0;
-//			if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_5) == GPIO_PIN_SET)
-//			{
-//				check[7]++;
-//				RobotState = NormalOperation;
-//				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
-//				if(doingTaskFlag == 1 && goingToGoalFlag == 1)
-//				{
-//					RobotRunToPositon(Robot.GoalPositon,Robot.QVMax);
-//				}
-//			}
-//			else
-//			{
-//				check[8]++;
-//				RobotState = Emergency;
-//				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
-//			}
-//		}
-//	}
-//	else if (GPIO_Pin == GPIO_PIN_5 && EmertimeoutFlag == 2){
-//		check[9]++;
-//		EmertimeoutFlag = 0;
-//	}
-//	if(GPIO_Pin == GPIO_PIN_5) // sad emergency button
-//	{
-//		if(EmertimeoutFlag == 0){
-//			if(Micros() - EmergencycalloutTime > 10000){
-//				EmergencycalloutTime = Micros();
-//				EmertimeoutFlag = 1;
-//				check[6]++;
-//				if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_5) == GPIO_PIN_SET)
-//				{
-//					check[7]++;
-//					RobotState = NormalOperation;
-//					HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
-//					if(doingTaskFlag == 1 && goingToGoalFlag == 1)
-//					{
-//						RobotRunToPositon(Robot.GoalPositon,Robot.QVMax);
-//					}
-//				}
-//				else
-//				{
-//					check[8]++;
-//					RobotState = Emergency;
-//					HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
-//				}
-//			}
-//		}
-//		else{
-//			EmertimeoutFlag = 0;
-//			check[9]++;
-//		}
-//	}
 	if(GPIO_Pin == GPIO_PIN_5)
 	{
 		if(EmertimeoutFlag == 0)
@@ -1344,28 +1334,13 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 			EmertimeoutFlag = 1;
 		}
 
-		if(Micros() - EmergencycalloutTime > 10000 && EmertimeoutFlag == 1)
+		if(Micros() - EmergencycalloutTime > 100000 && EmertimeoutFlag == 1)
 		{
 			check[6]++;
 			EmergencycalloutTime = Micros();
 			EmertimeoutFlag = 0;
 			//Docode
-			if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_5) == GPIO_PIN_SET)
-			{
-				check[7]++;
-				RobotState = NormalOperation;
-				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
-				if(doingTaskFlag == 1 && goingToGoalFlag == 1)
-				{
-					RobotRunToPositon(Robot.GoalPositon,Robot.QVMax);
-				}
-			}
-			else
-			{
-				check[8]++;
-				RobotState = Emergency;
-				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
-			}
+			HAL_TIM_Base_Start_IT(&htim5);
 		}
 	}
 }
@@ -1393,6 +1368,25 @@ void TIM_ResetCounter(TIM_TypeDef* TIMx)
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	if (htim == &htim11) {
 		_micro += 65535;
+	}
+	if (htim == &htim5){
+		if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_5) == GPIO_PIN_SET)
+		{
+			check[7]++;
+			RobotState = NormalOperation;
+			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
+			if((doingTaskFlag == 1 && goingToGoalFlag == 1) || homingFlag == 1)
+			{
+				RobotRunToPositon(Robot.GoalPositon,Robot.QVMax);
+			}
+		}
+		else
+		{
+			check[8]++;
+			RobotState = Emergency;
+			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
+		}
+		HAL_TIM_Base_Stop_IT(&htim5);
 	}
 }
 
