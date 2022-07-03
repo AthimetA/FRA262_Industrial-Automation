@@ -123,12 +123,13 @@ uint8_t ACK_2[2] = { 70, 0b01101110 };
  uint8_t openLaserWriteFlag = 0;
  uint8_t modeNo = 0;
  uint8_t modeByte = 0;
- uint64_t timeElapsed = 0;
+
  // ---------------------------------UART--------------------------------- //
  // ---------------------------------CTRL--------------------------------- //
  uint64_t _micro = 0;
+ uint64_t timeElapsed[2] = {0};
 
- uint64_t check[6] = {0};
+ uint64_t check[10] = {0};
 /* Setup EncoderData */
 int EncoderRawData[2] = {0};
 int WrappingStep = 0;
@@ -281,6 +282,8 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  timeElapsed[0] = Micros();
+	  timeElapsed[1] = HAL_GetTick();
 	  RobotstateManagement();
 	  if(Micros() - ControlLoopTime >= 10000)
 	  {
@@ -318,11 +321,12 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
-  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
-  RCC_OscInitStruct.PLL.PLLM = 4;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+  RCC_OscInitStruct.PLL.PLLM = 8;
   RCC_OscInitStruct.PLL.PLLN = 100;
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
   RCC_OscInitStruct.PLL.PLLQ = 4;
@@ -1104,7 +1108,6 @@ void RobotstateManagement()
 				I2CEndEffectorReadFlag =  1;
 				EndEffState = CheckBeforRun;
 			}
-
 			break;
 		case EndEff:
 			EndEffstateManagement();
@@ -1165,7 +1168,7 @@ void EndEffstateManagement()
 				endEffLoopTime = Micros();
 				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, GPIO_PIN_SET);
 			}
-			if(hi2c1.State == HAL_I2C_STATE_READY && Micros() - endEffLoopTime > 10000)
+			if(hi2c1.State == HAL_I2C_STATE_READY && Micros() - endEffLoopTime > 50000)
 			{
 				EndEffState = SetupReadStatus;
 				I2CEndEffectorWriteFlag = 1;
@@ -1276,13 +1279,80 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 			}
 		}
 	}
-	if(GPIO_Pin == GPIO_PIN_5 && EmertimeoutFlag == 0) // sad emergency button
+//	if(GPIO_Pin == GPIO_PIN_5 && EmertimeoutFlag == 0) // sad emergency button
+//	{
+//		if(Micros() - EmergencycalloutTime > 10000){
+//			check[6]++;
+//			EmergencycalloutTime = Micros();
+//			EmertimeoutFlag = 0;
+//			if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_5) == GPIO_PIN_SET)
+//			{
+//				check[7]++;
+//				RobotState = NormalOperation;
+//				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
+//				if(doingTaskFlag == 1 && goingToGoalFlag == 1)
+//				{
+//					RobotRunToPositon(Robot.GoalPositon,Robot.QVMax);
+//				}
+//			}
+//			else
+//			{
+//				check[8]++;
+//				RobotState = Emergency;
+//				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
+//			}
+//		}
+//	}
+//	else if (GPIO_Pin == GPIO_PIN_5 && EmertimeoutFlag == 2){
+//		check[9]++;
+//		EmertimeoutFlag = 0;
+//	}
+//	if(GPIO_Pin == GPIO_PIN_5) // sad emergency button
+//	{
+//		if(EmertimeoutFlag == 0){
+//			if(Micros() - EmergencycalloutTime > 10000){
+//				EmergencycalloutTime = Micros();
+//				EmertimeoutFlag = 1;
+//				check[6]++;
+//				if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_5) == GPIO_PIN_SET)
+//				{
+//					check[7]++;
+//					RobotState = NormalOperation;
+//					HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
+//					if(doingTaskFlag == 1 && goingToGoalFlag == 1)
+//					{
+//						RobotRunToPositon(Robot.GoalPositon,Robot.QVMax);
+//					}
+//				}
+//				else
+//				{
+//					check[8]++;
+//					RobotState = Emergency;
+//					HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
+//				}
+//			}
+//		}
+//		else{
+//			EmertimeoutFlag = 0;
+//			check[9]++;
+//		}
+//	}
+	if(GPIO_Pin == GPIO_PIN_5)
 	{
-		if(Micros() - EmergencycalloutTime > 10000){
-			EmergencycalloutTime = Micros();
+		if(EmertimeoutFlag == 0)
+		{
 			EmertimeoutFlag = 1;
+		}
+
+		if(Micros() - EmergencycalloutTime > 10000 && EmertimeoutFlag == 1)
+		{
+			check[6]++;
+			EmergencycalloutTime = Micros();
+			EmertimeoutFlag = 0;
+			//Docode
 			if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_5) == GPIO_PIN_SET)
 			{
+				check[7]++;
 				RobotState = NormalOperation;
 				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
 				if(doingTaskFlag == 1 && goingToGoalFlag == 1)
@@ -1292,13 +1362,11 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 			}
 			else
 			{
+				check[8]++;
 				RobotState = Emergency;
 				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
 			}
 		}
-	}
-	else{
-		EmertimeoutFlag = 0;
 	}
 }
 void RobotRunToPositon(float Destination , float VeloInput)
