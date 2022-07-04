@@ -11,9 +11,9 @@
 #define PID_KP  6.0f
 #define PID_KI  0.05f
 #define PID_KD  0.0f
-#define PIDVELO_KP  0.160041136848727f
-#define PIDVELO_KI  3.13946329365331f
-#define PIDVELO_KD  0.0f
+#define PIDVELO_KP  20.0f
+#define PIDVELO_KI  1.6f
+#define PIDVELO_KD  2.5f
 #define PID_LIM_MIN_INT -10000.0f
 #define PID_LIM_MAX_INT  10000.0f
 
@@ -129,17 +129,17 @@ float PIDAPositonController_Update(PIDAController *pid, float setpoint, float me
 //    	errorDZ = error + deadzone;
 //    }
 
-    if(AbsVal(setpoint) < 10.0) // 10 deg/s
+    if(AbsVal(setpoint) < 51.0) // 10 deg/s
     {
-    	pid->Kp  = PID_KP;
-    	pid->Ki  = PID_KI;
-    	pid->Kd  = PID_KD;
+    	pid->Kp  = 20.0;
+    	pid->Ki  = 1.6;
+    	pid->Kd  = 2.5;
     }
     else
     {
-    	pid->Kp  = PID_KP;
-    	pid->Ki  = PID_KI;
-    	pid->Kd  = PID_KD;
+    	pid->Kp  = 0.2;
+    	pid->Ki  = 0.1;
+    	pid->Kd  = 0;
     }
 
 	// Compute error of each term

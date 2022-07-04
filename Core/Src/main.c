@@ -59,7 +59,7 @@
 // ---------------------------------CTRL--------------------------------- //
 #define dt  0.01f
 //#define Kalmanvar  250000.0f
-#define Kalmanvar  2500.0f
+#define Kalmanvar  500.0f
 #define Pvar  1000.0f
 #define PWM_MAX 10000 // Max 10000
 // ---------------------------------CTRL--------------------------------- //
@@ -768,8 +768,9 @@ void ControllLoopAndErrorHandler()
 //		setpointLast = 0;
 //		setpoint = 0;
 //	}
+//	setpoint = 40.0;
 //	PIDAVelocityController_Update(&PidVelo, setpoint, KalmanVar.MatState_Data[1]);
-//	invTFOutput = InverseTFofMotor(setpointLast,setpoint);
+//	invTFOutput = InverseTFofMotor(setpoint,setpoint);
 //	PWMCHECKER = PidVelo.ControllerOut + invTFOutput;
 //	Drivemotor(PWMCHECKER);
 	if (Robot.flagStartTime == 1)
@@ -803,7 +804,7 @@ void ControllLoopAndErrorHandler()
 		else
 		{
 			PIDAPositonController_Update(&PidPos, Robot.QX , Robot.Position);
-			PIDAVelocityController_Update(&PidVelo, Robot.QV + PidPos.ControllerOut, Robot.Velocity);
+			PIDAVelocityController_Update(&PidVelo, Robot.QV, Robot.Velocity);
 			invTFOutput = InverseTFofMotor(traject.QV,traject.QVP);
 			PWMCHECKER = PidVelo.ControllerOut + invTFOutput;
 			Drivemotor(PWMCHECKER);
