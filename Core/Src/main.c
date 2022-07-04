@@ -289,9 +289,9 @@ int main(void)
   {
 	  timeElapsed[0] = Micros();
 	  timeElapsed[1] = HAL_GetTick();
-	  if(Micros() - EndEffLoopTime > 100000)
+	  if(Micros() - endEffLoopTime > 100000)
 	  {
-		  EndEffLoopTime = Micros();
+		  endEffLoopTime = Micros();
 		  RobotstateManagement();
 		  EndEffstateManagement();
 	  }
