@@ -129,7 +129,7 @@ uint8_t ACK_2[2] = { 70, 0b01101110 };
  // ---------------------------------CTRL--------------------------------- //
  uint64_t _micro = 0;
  uint64_t timeElapsed[2] = {0};
- uint64_t EndEffLoopTime = 0;
+
  uint64_t check[10] = {0};
 /* Setup EncoderData */
 int EncoderRawData[2] = {0};
