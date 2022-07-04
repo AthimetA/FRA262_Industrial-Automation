@@ -8,12 +8,6 @@
 #include "PIDVelocity.h"
 #include "Trajectory.h"
 
-#define PID_KP  6.0f
-#define PID_KI  0.05f
-#define PID_KD  0.0f
-#define PIDVELO_KP  20.0f
-#define PIDVELO_KI  1.6f
-#define PIDVELO_KD  2.5f
 #define PID_LIM_MIN_INT -10000.0f
 #define PID_LIM_MAX_INT  10000.0f
 
@@ -33,51 +27,26 @@ void PIDAController_Init(PIDAController *pid)
 	pid->OutputMin = PID_LIM_MIN_INT;
 }
 
-float PIDAVelocityController_Update(PIDAController *pid, float setpoint, float measurement){
-
+float PIDAPositonController_Update(PIDAController *pid, float setpoint, float measurement)
+{
     float error = setpoint - measurement;
     float errorDZ = error;
-    float deadzone = 2.5;
 
-//    if(error > deadzone)
+//    if(AbsVal(setpoint) < 20.0) // 10 deg/s
 //    {
-//    	errorDZ = error - deadzone;
-//    }
-//    else if( (-1.0*deadzone) < error && error < deadzone)
-//    {
-//    	errorDZ = 0;
+//    	pid->Kp  = 14.0;
+//    	pid->Ki  = 0.2;
+//    	pid->Kd  = 5.0;
 //    }
 //    else
 //    {
-//    	errorDZ = error + deadzone;
-//    }
-//    float errorLow = setpoint*0.1;
-//    float errorHigh = setpoint*0.9;
-
-//    if(AbsVal(error) < errorLow || AbsVal(error) > errorHigh)
-//    {
-//    	pid->KpUse = pid->Kp*10.0;
-//    }
-//    else
-//    {
-//    	pid->KpUse = pid->Kp;
-//    }
-
-    if(AbsVal(setpoint) <= 10.0) // 10 deg/s
-    {
-//    	pid->Kp  = 0.2;
-//    	pid->Ki  = 6.0;
+//    	pid->Kp  = 14.0;
+//    	pid->Ki  = 0.000;
 //    	pid->Kd  = 0.0;
-    	pid->Kp  = PIDVELO_KP;
-    	pid->Ki  = PIDVELO_KI;
-    	pid->Kd  = PIDVELO_KD;
-    }
-    else
-    {
-    	pid->Kp  = PIDVELO_KP;
-    	pid->Ki  = PIDVELO_KI;
-    	pid->Kd  = PIDVELO_KD;
-    }
+//    }
+	pid->Kp  = 14.0;
+	pid->Ki  = 0.000;
+	pid->Kd  = 0.0;
 
 	// Compute error of each term
 
@@ -110,24 +79,12 @@ float PIDAVelocityController_Update(PIDAController *pid, float setpoint, float m
 	return pid->ControllerOut;
 }
 
-float PIDAPositonController_Update(PIDAController *pid, float setpoint, float measurement)
-{
+
+
+float PIDAVelocityController_Update(PIDAController *pid, float setpoint, float measurement){
+
     float error = setpoint - measurement;
     float errorDZ = error;
-    float deadzone = 0.4;
-
-//    if(error > deadzone)
-//    {
-//    	errorDZ = error - deadzone;
-//    }
-//    else if( (-1.0*deadzone) < error && error < deadzone)
-//    {
-//    	errorDZ = 0;
-//    }
-//    else
-//    {
-//    	errorDZ = error + deadzone;
-//    }
 
     if(AbsVal(setpoint) < 51.0) // 10 deg/s
     {

@@ -289,10 +289,10 @@ int main(void)
   {
 	  timeElapsed[0] = Micros();
 	  timeElapsed[1] = HAL_GetTick();
-	  RobotstateManagement();
 	  if(Micros() - EndEffLoopTime > 100000)
 	  {
 		  EndEffLoopTime = Micros();
+		  RobotstateManagement();
 		  EndEffstateManagement();
 	  }
 	  if(Micros() - ControlLoopTime >= 10000)
@@ -307,6 +307,10 @@ int main(void)
 		CheckLoopStopTime = Micros();
 		CheckLoopDiffTime = CheckLoopStopTime - CheckLoopStartTime;
 	  }
+//	  if(timeElapsed[0] > 12000000)
+//	  {
+//		  NVIC_SystemReset();
+//	  }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -804,7 +808,7 @@ void ControllLoopAndErrorHandler()
 		else
 		{
 			PIDAPositonController_Update(&PidPos, Robot.QX , Robot.Position);
-			PIDAVelocityController_Update(&PidVelo, Robot.QV, Robot.Velocity);
+			PIDAVelocityController_Update(&PidVelo, Robot.QV + PidPos.ControllerOut , Robot.Velocity);
 			invTFOutput = InverseTFofMotor(traject.QV,traject.QVP);
 			PWMCHECKER = PidVelo.ControllerOut + invTFOutput;
 			Drivemotor(PWMCHECKER);
