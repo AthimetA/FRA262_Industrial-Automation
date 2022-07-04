@@ -27,6 +27,14 @@ void Robotinit(RobotManagement *Robot)
 
 }
 
+void TrajectorInit(TrajectoryG *traject)
+{
+	arm_mat_init_f32(&(traject ->MatTime), 6, 6, traject ->MatTime_Data);
+	arm_mat_init_f32(&(traject ->MatTimeINV), 6, 6, traject ->MatTimeINV_Data);
+	arm_mat_init_f32(&(traject ->MatCondition), 6, 1, traject ->MatCondition_Data);
+	arm_mat_init_f32(&(traject ->MatA), 6, 1, traject ->MatTA_Data);
+}
+
 void RobotSetHome(RobotManagement *Robot , float homePoint)
 {
 	Robot -> HomePositon = homePoint;
@@ -53,8 +61,6 @@ void CoefficientAndTimeCalculation(TrajectoryG *traject, float Qinitial, float Q
 
 	// Set Vmax Amax Jmax
 	traject -> Vmax = 0.0;
-//	traject -> Amax = 28.64789;
-//	traject -> Jmax = 572.957795 ;
 	traject -> Amax = 21.77;
 	traject -> Jmax = 114.59 ;
 	float gain = 0.0;
@@ -90,71 +96,55 @@ void CoefficientAndTimeCalculation(TrajectoryG *traject, float Qinitial, float Q
 	traject -> Jmax =  traject -> Jmax *gain;
 
 	// Calculate time
-	traject -> T[6] = (traject -> Amax/traject -> Jmax) + (traject -> Vmax/traject -> Amax) + (traject -> QRelative/traject -> Vmax);
-	traject -> T[0] = (traject -> Amax/traject -> Jmax);
-	traject -> T[1] = (traject -> Vmax/traject -> Amax);
-	traject -> T[2] = (traject -> Amax/traject -> Jmax) + (traject -> Vmax/traject -> Amax);
-	traject -> T[3] = traject -> T[6] - traject -> T[2];
-	traject -> T[4] = traject -> T[6] - traject -> T[1];
-	traject -> T[5] = traject -> T[6] - traject -> T[0];
+	traject -> TimeInit = 0.0;
+	traject -> TimeFinal = (traject -> Amax/traject -> Jmax) + (traject -> Vmax/traject -> Amax) + (traject -> QRelative/traject -> Vmax);
 
-	traject -> A[0] = traject -> Jmax;
-	traject -> A[1] = 0;
-	traject -> A[2] = -1.0 * traject -> Jmax;
-	traject -> A[3] = 0;
-	traject -> A[4] = -1.0 * traject -> Jmax;
-	traject -> A[5] = 0;
-	traject -> A[6] = traject -> Jmax;
+	traject -> MatTime_Data[0] = 1.0;
+	traject -> MatTime_Data[1] = traject -> TimeInit;
+	traject -> MatTime_Data[2] = traject -> TimeInit*traject -> TimeInit;
+	traject -> MatTime_Data[3] = traject -> TimeInit*traject -> TimeInit*traject -> TimeInit;
+	traject -> MatTime_Data[4] = traject -> TimeInit*traject -> TimeInit*traject -> TimeInit*traject -> TimeInit;
+	traject -> MatTime_Data[5] = traject -> TimeInit*traject -> TimeInit*traject -> TimeInit*traject -> TimeInit*traject -> TimeInit;
+	traject -> MatTime_Data[6] = 0.0;
+	traject -> MatTime_Data[7] = 1.0;
+	traject -> MatTime_Data[8] = 2.0*traject -> TimeInit;
+	traject -> MatTime_Data[9] = 3.0*traject -> TimeInit*traject -> TimeInit;
+	traject -> MatTime_Data[10] = 4.0*traject -> TimeInit*traject -> TimeInit*traject -> TimeInit;
+	traject -> MatTime_Data[11] = 5.0*traject -> TimeInit*traject -> TimeInit*traject -> TimeInit*traject -> TimeInit;
+	traject -> MatTime_Data[12] = 0.0;
+	traject -> MatTime_Data[13] = 0.0;
+	traject -> MatTime_Data[14] = 2.0;
+	traject -> MatTime_Data[15] = 6.0*traject -> TimeInit;
+	traject -> MatTime_Data[16] = 12.0*traject -> TimeInit*traject -> TimeInit;
+	traject -> MatTime_Data[17] = 20.0*traject -> TimeInit*traject -> TimeInit*traject -> TimeInit;
+	traject -> MatTime_Data[18] = 1.0;
+	traject -> MatTime_Data[19] = traject -> TimeFinal;
+	traject -> MatTime_Data[20] = traject -> TimeFinal*traject -> TimeFinal;
+	traject -> MatTime_Data[21] = traject -> TimeFinal*traject -> TimeFinal*traject -> TimeFinal;
+	traject -> MatTime_Data[22] = traject -> TimeFinal*traject -> TimeFinal*traject -> TimeFinal*traject -> TimeFinal;
+	traject -> MatTime_Data[23] = traject -> TimeFinal*traject -> TimeFinal*traject -> TimeFinal*traject -> TimeFinal*traject -> TimeFinal;
+	traject -> MatTime_Data[24] = 0.0;
+	traject -> MatTime_Data[25] = 1.0;
+	traject -> MatTime_Data[26] = 2.0*traject -> TimeFinal;
+	traject -> MatTime_Data[27] = 3.0*traject -> TimeFinal*traject -> TimeFinal;
+	traject -> MatTime_Data[28] = 4.0*traject -> TimeFinal*traject -> TimeFinal*traject -> TimeFinal;
+	traject -> MatTime_Data[29] = 5.0*traject -> TimeFinal*traject -> TimeFinal*traject -> TimeFinal*traject -> TimeFinal;
+	traject -> MatTime_Data[30] = 0.0;
+	traject -> MatTime_Data[31] = 0.0;
+	traject -> MatTime_Data[32] = 2.0;
+	traject -> MatTime_Data[33] = 6.0*traject -> TimeFinal;
+	traject -> MatTime_Data[34] = 12.0*traject -> TimeFinal*traject -> TimeFinal;
+	traject -> MatTime_Data[35] = 20.0*traject -> TimeFinal*traject -> TimeFinal*traject -> TimeFinal;
 
-	traject -> B[0] = 0;
-	traject -> B[1] = traject -> Amax;
-	traject -> B[2] = traject -> Amax + (traject -> Jmax * traject -> T[1]);
-	traject -> B[3] = 0;
-	traject -> B[4] = traject -> Jmax * traject -> T[3];
-	traject -> B[5] = (-1.0 * traject ->Amax);
-	traject -> B[6] = (-1.0 * traject ->Amax) - (traject -> Jmax * traject -> T[5]);
+	traject -> MatCondition_Data[0] = traject -> Qin;
+	traject -> MatCondition_Data[1] = 0;
+	traject -> MatCondition_Data[2] = 0;
+	traject -> MatCondition_Data[3] = traject -> Qfinal;
+	traject -> MatCondition_Data[4] = 0;
+	traject -> MatCondition_Data[5] = 0;
 
-	traject -> C[0] = 0;
-	traject -> C[1] = ((traject -> A[0]*(traject -> T[0] * traject -> T[0]))/2+ traject -> B[0] * traject -> T[0] + traject -> C[0])
-					-((traject -> A[1]*(traject -> T[0] * traject -> T[0]))/2+traject -> B[1]*traject -> T[0]);
-	traject -> C[2] = ((traject -> A[1]*(traject -> T[1] * traject -> T[1]))/2+ traject -> B[1] * traject -> T[1] + traject -> C[1])
-					-((traject -> A[2]*(traject -> T[1] * traject -> T[1]))/2+traject -> B[2]*traject -> T[1]);
-	traject -> C[3] = ((traject -> A[2]*(traject -> T[2] * traject -> T[2]))/2+ traject -> B[2] * traject -> T[2] + traject -> C[2])
-					-((traject -> A[3]*(traject -> T[2] * traject -> T[2]))/2+traject -> B[3]*traject -> T[2]);
-	traject -> C[4] = ((traject -> A[3]*(traject -> T[3] * traject -> T[3]))/2+ traject -> B[3] * traject -> T[3] + traject -> C[3])
-					-((traject -> A[4]*(traject -> T[3] * traject -> T[3]))/2+traject -> B[4]*traject -> T[3]);
-	traject -> C[5] = ((traject -> A[4]*(traject -> T[4] * traject -> T[4]))/2+ traject -> B[4] * traject -> T[4] + traject -> C[4])
-					-((traject -> A[5]*(traject -> T[4] * traject -> T[4]))/2+traject -> B[5]*traject -> T[4]);
-	traject -> C[6] = ((traject -> A[5]*(traject -> T[5] * traject -> T[5]))/2+ traject -> B[5] * traject -> T[5] + traject -> C[5])
-					-((traject -> A[6]*(traject -> T[5] * traject -> T[5]))/2+traject -> B[6]*traject -> T[5]);
-
-	traject -> D[0] = 0;
-	traject -> D[1] = ((traject -> A[0]*(traject -> T[0] * traject -> T[0] * traject -> T[0]))/6
-					+ (traject -> B[0]*(traject -> T[0] * traject -> T[0]))/2 + traject -> C[0]*(traject -> T[0]) + traject -> D[0])
-					- ((traject -> A[1]*(traject -> T[0] * traject -> T[0] * traject -> T[0]))/6
-					+ (traject -> B[1]*(traject -> T[0] * traject -> T[0]))/2 + traject -> C[1]* traject -> T[0]);
-
-	traject -> D[2] = ((traject -> A[1]*(traject -> T[1] * traject -> T[1] * traject -> T[1]))/6
-					+ (traject -> B[1]*(traject -> T[1] * traject -> T[1]))/2 + traject -> C[1]*(traject -> T[1]) + traject -> D[1])
-					- ((traject -> A[2]*(traject -> T[1] * traject -> T[1] * traject -> T[1]))/6
-					+ (traject -> B[2]*(traject -> T[1] * traject -> T[1]))/2 + traject -> C[2]* traject -> T[1]);
-
-	traject -> D[3] = ((traject -> A[2]*(traject -> T[2] * traject -> T[2] * traject -> T[2]))/6
-					+ (traject -> B[2]*(traject -> T[2] * traject -> T[2]))/2 + traject -> C[2]*(traject -> T[2]) + traject -> D[2])
-					- ((traject -> A[3]*(traject -> T[2] * traject -> T[2] * traject -> T[2]))/6
-					+ (traject -> B[3]*(traject -> T[2] * traject -> T[2]))/2 + traject -> C[3]* traject -> T[2]);
-	traject -> D[4] = ((traject -> A[3]*(traject -> T[3] * traject -> T[3] * traject -> T[3]))/6
-					+ (traject -> B[3]*(traject -> T[3] * traject -> T[3]))/2 + traject -> C[3]*(traject -> T[3]) + traject -> D[3])
-					- ((traject -> A[4]*(traject -> T[3] * traject -> T[3] * traject -> T[3]))/6
-					+ (traject -> B[4]*(traject -> T[3] * traject -> T[3]))/2 + traject -> C[4]* traject -> T[3]);
-	traject -> D[5] = ((traject -> A[4]*(traject -> T[4] * traject -> T[4] * traject -> T[4]))/6
-					+ (traject -> B[4]*(traject -> T[4] * traject -> T[4]))/2 + traject -> C[4]*(traject -> T[4]) + traject -> D[4])
-					- ((traject -> A[5]*(traject -> T[4] * traject -> T[4] * traject -> T[4]))/6
-					+ (traject -> B[5]*(traject -> T[4] * traject -> T[4]))/2 + traject -> C[5]* traject -> T[4]);
-	traject -> D[6] = ((traject -> A[5]*(traject -> T[5] * traject -> T[5] * traject -> T[5]))/6
-					+ (traject -> B[5]*(traject -> T[5] * traject -> T[5]))/2 + traject -> C[5]*(traject -> T[5]) + traject -> D[5])
-					- ((traject -> A[6]*(traject -> T[5] * traject -> T[5] * traject -> T[5]))/6
-					+ (traject -> B[6]*(traject -> T[5] * traject -> T[5]))/2 + traject -> C[6]* traject -> T[5]);
+	traject -> Trajectorystatus = arm_mat_inverse_f32(&(traject ->MatTime), &(traject ->MatTimeINV));
+	traject -> Trajectorystatus = arm_mat_mult_f32(&(traject ->MatTimeINV), &(traject ->MatCondition), &(traject ->MatA));
 }
 
 
@@ -165,61 +155,15 @@ void TrajectoryEvaluation(TrajectoryG *traject , uint64_t StartTime, uint64_t Cu
 	t  = (CurrentTime - StartTime)/1000000.0;
 	tP = (PredictTime - StartTime)/1000000.0;
 
-	if(t >= 0 && t < traject -> T[0])
+	if(t >= 0 && t < traject -> TimeFinal)
 	{
-		traject -> QJ = traject -> A[0];
-		traject -> QA = traject -> A[0]*t + traject -> B[0];
-		traject -> QV = traject -> A[0]*(t*t)/2 + traject -> B[0]*t + traject -> C[0];
-		traject -> QVP = traject -> A[0]*(tP*tP)/2 + traject -> B[0]*tP + traject -> C[0];
-		traject -> QX = traject -> Qin + traject -> A[0]*(t*t*t)/6 + traject -> B[0]*(t*t)/2 + traject -> C[0]*t + traject -> D[0];
-	}
-	else if( t >= traject -> T[0] && t < traject -> T[1])
-	{
-		traject -> QJ = traject -> A[1];
-		traject -> QA = traject -> A[1]*t + traject -> B[1];
-		traject -> QV = traject -> A[1]*(t*t)/2 + traject -> B[1]*t + traject -> C[1];
-		traject -> QVP = traject -> A[1]*(tP*tP)/2 + traject -> B[1]*tP + traject -> C[1];
-		traject -> QX = traject -> Qin + traject -> A[1]*(t*t*t)/6 + traject -> B[1]*(t*t)/2 + traject -> C[1]*t + traject -> D[1];
-	}
-	else if( t >= traject -> T[1] && t < traject -> T[2])
-	{
-		traject -> QJ = traject -> A[2];
-		traject -> QA = traject -> A[2]*t + traject -> B[2];
-		traject -> QV = traject -> A[2]*(t*t)/2 + traject -> B[2]*t + traject -> C[2];
-		traject -> QVP = traject -> A[2]*(tP*tP)/2 + traject -> B[2]*tP + traject -> C[2];
-		traject -> QX = traject -> Qin + traject -> A[2]*(t*t*t)/6 + traject -> B[2]*(t*t)/2 + traject -> C[2]*t + traject -> D[2];
-	}
-	else if( t >= traject -> T[2] && t < traject -> T[3])
-	{
-		traject -> QJ = traject -> A[3];
-		traject -> QA = traject -> A[3]*t + traject -> B[3];
-		traject -> QV = traject -> A[3]*(t*t)/2 + traject -> B[3]*t + traject -> C[3];
-		traject -> QVP = traject -> A[3]*(tP*tP)/2 + traject -> B[3]*tP + traject -> C[3];
-		traject -> QX = traject -> Qin + traject -> A[3]*(t*t*t)/6 + traject -> B[3]*(t*t)/2 + traject -> C[3]*t + traject -> D[3];
-	}
-	else if( t >= traject -> T[3] && t < traject -> T[4])
-	{
-		traject -> QJ = traject -> A[4];
-		traject -> QA = traject -> A[4]*t + traject -> B[4];
-		traject -> QV = traject -> A[4]*(t*t)/2 + traject -> B[4]*t + traject -> C[4];
-		traject -> QVP = traject -> A[4]*(tP*tP)/2 + traject -> B[4]*tP + traject -> C[4];
-		traject -> QX = traject -> Qin + traject -> A[4]*(t*t*t)/6 + traject -> B[4]*(t*t)/2 + traject -> C[4]*t + traject -> D[4];
-	}
-	else if( t >= traject -> T[4] && t < traject -> T[5])
-	{
-		traject -> QJ = traject -> A[5];
-		traject -> QA = traject -> A[5]*t + traject -> B[5];
-		traject -> QV = traject -> A[5]*(t*t)/2 + traject -> B[5]*t + traject -> C[5];
-		traject -> QVP = traject -> A[5]*(tP*tP)/2 + traject -> B[5]*tP + traject -> C[5];
-		traject -> QX = traject -> Qin + traject -> A[5]*(t*t*t)/6 + traject -> B[5]*(t*t)/2 + traject -> C[5]*t + traject -> D[5];
-	}
-	else if( t >= traject -> T[5] && t < traject -> T[6])
-	{
-		traject -> QJ = traject -> A[6];
-		traject -> QA = traject -> A[6]*t + traject -> B[6];
-		traject -> QV = traject -> A[6]*(t*t)/2 + traject -> B[6]*t + traject -> C[6];
-		traject -> QVP = traject -> A[6]*(tP*tP)/2 + traject -> B[6]*tP + traject -> C[6];
-		traject -> QX = traject -> Qin + traject -> A[6]*(t*t*t)/6 + traject -> B[6]*(t*t)/2 + traject -> C[6]*t + traject -> D[6];
+	      traject -> QA = (2*traject -> MatTA_Data[2]) + (6*traject -> MatTA_Data[3]*t) + (12*traject -> MatTA_Data[4]*(t*t)) + (20*traject -> MatTA_Data[5]*(t*t*t));
+
+	      traject -> QV = (traject -> MatTA_Data[1]) + (2*traject -> MatTA_Data[2]*t) + (3*traject -> MatTA_Data[3]*(t*t)) + (4*traject -> MatTA_Data[4]*(t*t*t)) + (5*traject -> MatTA_Data[5]*(t*t*t*t));
+
+	      traject -> QVP = (traject -> MatTA_Data[1]) + (2*traject -> MatTA_Data[2]*tP) + (3*traject -> MatTA_Data[3]*(tP*tP)) + (4*traject -> MatTA_Data[4]*(tP*tP*tP)) + (5*traject -> MatTA_Data[5]*(tP*tP*tP*tP));
+
+	      traject -> QX = (traject -> MatTA_Data[0]) + (traject -> MatTA_Data[1]*t) + (traject -> MatTA_Data[2]*(t*t)) + (traject -> MatTA_Data[3]*(t*t*t)) + (traject -> MatTA_Data[4]*(t*t*t*t))+ (traject -> MatTA_Data[5]*(t*t*t*t*t));
 	}
 	else
 	{
@@ -230,5 +174,4 @@ void TrajectoryEvaluation(TrajectoryG *traject , uint64_t StartTime, uint64_t Cu
 		traject -> QX = traject -> Qfinal;
 	}
 
-	return 1.0;
 }

@@ -9,7 +9,14 @@
 #define INC_TRAJECTORY_H_
 
 #include "main.h"
+#include "arm_math.h"
+
 typedef struct {
+
+	float32_t MatTime_Data[36];
+	float32_t MatTimeINV_Data[36];
+	float32_t MatCondition_Data[6];
+	float32_t MatTA_Data[6];
 
 	// Max Acc
 	float Amax;
@@ -45,6 +52,18 @@ typedef struct {
 	float QVP;
 	float QX;
 
+	// Matrix A
+	float TimeInit;
+	float TimeFinal;
+
+	arm_matrix_instance_f32 MatTime;
+	arm_matrix_instance_f32 MatTimeINV;
+	arm_matrix_instance_f32 MatCondition;
+	arm_matrix_instance_f32 MatA;
+
+	// Status
+	arm_status Trajectorystatus;
+
 } TrajectoryG;
 
 typedef struct {
@@ -72,6 +91,7 @@ typedef struct {
 void Robotinit(RobotManagement *Robot);
 void RobotSetHome(RobotManagement *Robot , float homePoint);
 float AbsVal(float number);
+void TrajectorInit(TrajectoryG *traject);
 void CoefficientAndTimeCalculation(TrajectoryG *traject, float Qinitial, float Qfinal, float Velomax);
 void TrajectoryEvaluation(TrajectoryG *traject , uint64_t StartTime, uint64_t CurrentTime,uint64_t PredictTime);
 

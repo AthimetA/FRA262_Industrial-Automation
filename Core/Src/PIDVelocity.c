@@ -86,18 +86,21 @@ float PIDAVelocityController_Update(PIDAController *pid, float setpoint, float m
     float error = setpoint - measurement;
     float errorDZ = error;
 
-    if(AbsVal(setpoint) < 51.0) // 10 deg/s
-    {
-    	pid->Kp  = 20.0;
-    	pid->Ki  = 1.6;
-    	pid->Kd  = 2.5;
-    }
-    else
-    {
-    	pid->Kp  = 0.2;
-    	pid->Ki  = 0.1;
-    	pid->Kd  = 0;
-    }
+//    if(AbsVal(setpoint) < 51.0) // 10 deg/s
+//    {
+//    	pid->Kp  = 20.0;
+//    	pid->Ki  = 1.6;
+//    	pid->Kd  = 2.5;
+//    }
+//    else
+//    {
+//    	pid->Kp  = 0.2;
+//    	pid->Ki  = 0.1;
+//    	pid->Kd  = 0;
+//    }
+	pid->Kp  = 20.0;
+	pid->Ki  = 1.6;
+	pid->Kd  = 2.5;
 
 	// Compute error of each term
 

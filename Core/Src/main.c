@@ -59,7 +59,7 @@
 // ---------------------------------CTRL--------------------------------- //
 #define dt  0.01f
 //#define Kalmanvar  250000.0f
-#define Kalmanvar  500.0f
+#define Kalmanvar  2500.0f
 #define Pvar  1000.0f
 #define PWM_MAX 10000 // Max 10000
 // ---------------------------------CTRL--------------------------------- //
@@ -129,7 +129,7 @@ uint8_t ACK_2[2] = { 70, 0b01101110 };
  // ---------------------------------CTRL--------------------------------- //
  uint64_t _micro = 0;
  uint64_t timeElapsed[2] = {0};
-
+ uint64_t EndEffLoopTime = 0;
  uint64_t check[10] = {0};
 /* Setup EncoderData */
 int EncoderRawData[2] = {0};
@@ -175,7 +175,12 @@ PIDAController PidVelo = {};
 PIDAController PidPos = {};
 float PWMCHECKER = 0.0f;
 float PositionErrorControl = 0.3f;
-TrajectoryG traject;
+TrajectoryG traject = {
+		{0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,}, //MatTime_Data
+		{0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,}, //MatTimeINV_DataI
+		{0.0,0.0,0.0,0.0,0.0,0.0,}, //MatCondition_Data
+		{0.0,0.0,0.0,0.0,0.0,0.0,}, //MatTA_Data
+};
 static uint64_t StartTime =0;
 static uint64_t CurrentTime =0;
 static uint64_t PredictTime =0;
@@ -246,7 +251,8 @@ int main(void)
 
   /* MCU Configuration--------------------------------------------------------*/
 
-  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */  HAL_Init();
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+  HAL_Init();
 
   /* USER CODE BEGIN Init */
 
@@ -271,6 +277,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
   Ringbuf_Init();
   KalmanMatrixInit(&KalmanVar);
+  TrajectorInit(&traject);
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
   HAL_TIM_Base_Start_IT (&htim11);
   HAL_TIM_Encoder_Start(&htim2, TIM_CHANNEL_ALL);
@@ -289,10 +296,10 @@ int main(void)
   {
 	  timeElapsed[0] = Micros();
 	  timeElapsed[1] = HAL_GetTick();
-	  if(Micros() - endEffLoopTime > 100000)
+	  RobotstateManagement();
+	  if(Micros() - EndEffLoopTime > 100000)
 	  {
-		  endEffLoopTime = Micros();
-		  RobotstateManagement();
+		  EndEffLoopTime = Micros();
 		  EndEffstateManagement();
 	  }
 	  if(Micros() - ControlLoopTime >= 10000)
@@ -307,10 +314,6 @@ int main(void)
 		CheckLoopStopTime = Micros();
 		CheckLoopDiffTime = CheckLoopStopTime - CheckLoopStartTime;
 	  }
-//	  if(timeElapsed[0] > 12000000)
-//	  {
-//		  NVIC_SystemReset();
-//	  }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -772,9 +775,8 @@ void ControllLoopAndErrorHandler()
 //		setpointLast = 0;
 //		setpoint = 0;
 //	}
-//	setpoint = 40.0;
 //	PIDAVelocityController_Update(&PidVelo, setpoint, KalmanVar.MatState_Data[1]);
-//	invTFOutput = InverseTFofMotor(setpoint,setpoint);
+//	invTFOutput = InverseTFofMotor(setpointLast,setpoint);
 //	PWMCHECKER = PidVelo.ControllerOut + invTFOutput;
 //	Drivemotor(PWMCHECKER);
 	if (Robot.flagStartTime == 1)
@@ -808,7 +810,7 @@ void ControllLoopAndErrorHandler()
 		else
 		{
 			PIDAPositonController_Update(&PidPos, Robot.QX , Robot.Position);
-			PIDAVelocityController_Update(&PidVelo, Robot.QV + PidPos.ControllerOut , Robot.Velocity);
+			PIDAVelocityController_Update(&PidVelo, Robot.QV + PidPos.ControllerOut, Robot.Velocity);
 			invTFOutput = InverseTFofMotor(traject.QV,traject.QVP);
 			PWMCHECKER = PidVelo.ControllerOut + invTFOutput;
 			Drivemotor(PWMCHECKER);
