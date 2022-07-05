@@ -58,8 +58,9 @@
 // ---------------------------------I2C---------------------------------- //
 // ---------------------------------CTRL--------------------------------- //
 #define dt  0.01f
-//#define Kalmanvar  250000.0f
-#define Kalmanvar  2500.0f
+#define Kalmanvar  12000000.0f
+#define RVar 10000.0f
+//#define Kalmanvar  2500.0f
 #define Pvar  1000.0f
 #define PWM_MAX 10000 // Max 10000
 // ---------------------------------CTRL--------------------------------- //
@@ -141,10 +142,11 @@ float invTFOutput = 0;
 KalmanFilterVar KalmanVar = {
 		{1.0,dt,0.5*dt*dt,0.0,1.0,dt,0.0,0.0,1.0}, // A
 		{0.0,0.0,0.0}, // B
-		{1.0,0.0,0.0}, // C
+		{0.0,1.0,0.0}, // C
 		{0.0}, // D
 		{dt*dt*dt*dt*Kalmanvar/4,dt*dt*dt*Kalmanvar/2,dt*dt*Kalmanvar/2,dt*dt*dt*Kalmanvar/2,dt*dt*Kalmanvar,dt*Kalmanvar,dt*dt*Kalmanvar/2,dt*Kalmanvar,Kalmanvar},
-		{0.0001}, //R
+//		{0.0001}, //R
+		{RVar}, //R
 		{0,0,((dt*dt*dt))/6,0,0,((dt*dt))/2,0,0,dt},//G
 		{0.0,0.0,0.0}, // STATE X
 		{0.0,0.0,0.0}, // STATE X-1
@@ -288,6 +290,7 @@ int main(void)
   PIDAController_Init(&PidPos);
   // Reset all Parameter
   Robotinit(&Robot);
+  RobotRunToPositon(360.0,51.0);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -307,12 +310,16 @@ int main(void)
 		ControlLoopTime  = Micros();
 		CheckLoopStartTime = Micros();
 		EncoderRead();
-		KalmanFilterFunction(&KalmanVar,PositionDeg[0]);
+//		KalmanFilterFunction(&KalmanVar,PositionDeg[0]);
+		KalmanFilterFunction(&KalmanVar,VelocityDeg);
 		Robot.Position = PositionDeg[0];
 		Robot.Velocity = KalmanVar.MatState_Data[1];
 		ControllLoopAndErrorHandler();
 		CheckLoopStopTime = Micros();
 		CheckLoopDiffTime = CheckLoopStopTime - CheckLoopStartTime;
+	  }
+	  if(timeElapsed[0] > 12000000){
+		  NVIC_SystemReset();
 	  }
     /* USER CODE END WHILE */
 
@@ -810,7 +817,7 @@ void ControllLoopAndErrorHandler()
 		else
 		{
 			PIDAPositonController_Update(&PidPos, Robot.QX , Robot.Position);
-			PIDAVelocityController_Update(&PidVelo, Robot.QV + PidPos.ControllerOut, Robot.Velocity);
+			PIDAVelocityController_Update(&PidVelo, Robot.QV + PidPos.ControllerOut , Robot.Velocity);
 			invTFOutput = InverseTFofMotor(traject.QV,traject.QVP);
 			PWMCHECKER = PidVelo.ControllerOut + invTFOutput;
 			Drivemotor(PWMCHECKER);
@@ -1095,12 +1102,12 @@ void RobotstateManagement()
 	switch (RobotState)
 	{
 		case init:
-			// Start Finding home Position
-			Robot.flagSethome = 1;
-			// Turn 360 Deg
-			RobotRunToPositon(360.0,51.0);
-			// Goto next State
-			RobotState = FindHome;
+//			// Start Finding home Position
+//			Robot.flagSethome = 1;
+//			// Turn 360 Deg
+//			RobotRunToPositon(360.0,51.0);
+//			// Goto next State
+//			RobotState = FindHome;
 			break;
 		case FindHome:
 			if(Robot.RunningFlag == 0)
