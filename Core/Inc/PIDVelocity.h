@@ -34,7 +34,7 @@ typedef struct {
 } PIDAController;
 
 void PIDAController_Init(PIDAController *pid);
-float PIDAVelocityController_Update(PIDAController *pid, float setpoint, float measurement);
-float PIDAPositonController_Update(PIDAController *pid, float setpoint, float measurement);
+float PIDAVelocityController_Update(PIDAController *pid, float setpoint, float measurement,float VMCal);
+float PIDAPositonController_Update(PIDAController *pid, float setpoint, float measurement, float Distance);
 
 #endif /* INC_PIDVELOCITY_H_ */

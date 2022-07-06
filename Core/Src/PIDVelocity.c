@@ -27,27 +27,44 @@ void PIDAController_Init(PIDAController *pid)
 	pid->OutputMin = PID_LIM_MIN_INT;
 }
 
-float PIDAPositonController_Update(PIDAController *pid, float setpoint, float measurement)
+float PIDAPositonController_Update(PIDAController *pid, float setpoint, float measurement, float Distance)
 {
     float error = setpoint - measurement;
     float errorDZ = error;
 
-//    if(AbsVal(setpoint) < 20.0) // 10 deg/s
+    // Quintic Trajectory
+//    if(AbsVal(setpoint) < AbsVal(0.05*Distance)) // 10 deg/s
 //    {
-//    	pid->Kp  = 14.0;
-//    	pid->Ki  = 0.2;
-//    	pid->Kd  = 5.0;
+//    	pid->Kp  = 1.0;
+//    	pid->Ki  = 0.0;
+//    	pid->Kd  = 0.0;
 //    }
 //    else
 //    {
-//    	pid->Kp  = 14.0;
-//    	pid->Ki  = 0.000;
+//    	pid->Kp  = 3.0;
+//    	pid->Ki  = 0.0;
 //    	pid->Kd  = 0.0;
 //    }
-	pid->Kp  = 14.0;
-	pid->Ki  = 0.000;
-	pid->Kd  = 0.0;
+//	pid->Kp  = 6.0;
+//	pid->Ki  = 0.0;
+//	pid->Kd  = 0.0;
 
+    // Scurve Trajectory
+    if(AbsVal(setpoint) <= AbsVal(0.1*Distance)) // 10 deg/s
+    {
+//    	pid->Kp  = 0.2;
+//    	pid->Ki  = 6.0;
+//    	pid->Kd  = 0.0;
+    	pid->Kp  = 6.0;
+    	pid->Ki  = 0.05;
+    	pid->Kd  = 0.0;
+    }
+    else
+    {
+    	pid->Kp  = 6.0;
+    	pid->Ki  = 0.05;
+    	pid->Kd  = 0.0;
+    }
 	// Compute error of each term
 
     pid->proportionalOutput = (pid->Kp*errorDZ) - (pid->Kp * pid->Last1Error);
@@ -81,16 +98,33 @@ float PIDAPositonController_Update(PIDAController *pid, float setpoint, float me
 
 
 
-float PIDAVelocityController_Update(PIDAController *pid, float setpoint, float measurement){
+float PIDAVelocityController_Update(PIDAController *pid, float setpoint, float measurement,float VMCal){
 
     float error = setpoint - measurement;
     float errorDZ = error;
 
-//    if(AbsVal(setpoint) < 51.0) // 10 deg/s
+//    if(AbsVal(setpoint) < AbsVal(0.07*VMCal)) // 10 deg/s
 //    {
-//    	pid->Kp  = 20.0;
-//    	pid->Ki  = 1.6;
-//    	pid->Kd  = 2.5;
+//		pid->Kp  = 20.0;
+//		pid->Ki  = 4.2;
+//		pid->Kd  = 2.25;
+//    }
+//    else
+//    {
+//		pid->Kp  = 0.27;
+//		pid->Ki  = 2.2;
+//		pid->Kd  = 0.0095;
+//    }
+//	pid->Kp  = 0.27;
+//	pid->Ki  = 2.2;
+//	pid->Kd  = 0.0095;
+
+    // Scurve Trajectory
+//    if(AbsVal(setpoint) < VMCal) // 10 deg/s
+//    {
+//    	pid->Kp  = 0.27;
+//		pid->Ki  = 2.2;
+//		pid->Kd  = 0.0095;
 //    }
 //    else
 //    {
@@ -98,10 +132,9 @@ float PIDAVelocityController_Update(PIDAController *pid, float setpoint, float m
 //    	pid->Ki  = 0.1;
 //    	pid->Kd  = 0;
 //    }
-		pid->Kp  = 0.24;
-		pid->Ki  = 2.6;
-		pid->Kd  = 0.0;
-
+	pid->Kp  = 0.160041136848727;
+	pid->Ki  = 3.13946329365331;
+	pid->Kd  = 0.0;
 	// Compute error of each term
 
     pid->proportionalOutput = (pid->Kp*errorDZ) - (pid->Kp * pid->Last1Error);

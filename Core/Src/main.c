@@ -279,7 +279,7 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM5_Init();
   /* USER CODE BEGIN 2 */
-  HAL_Delay(1000);
+//  HAL_Delay(1000);
   Ringbuf_Init();
   KalmanMatrixInit(&KalmanVar);
   TrajectorInit(&traject);
@@ -293,7 +293,7 @@ int main(void)
   PIDAController_Init(&PidPos);
   // Reset all Parameter
   Robotinit(&Robot);
-  RobotRunToPositon(360.0,51.0);
+//  RobotRunToPositon(360.0,51.0);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -321,9 +321,9 @@ int main(void)
 		CheckLoopStopTime = Micros();
 		CheckLoopDiffTime = CheckLoopStopTime - CheckLoopStartTime;
 	  }
-	  if(timeElapsed[0] > 12000000){
-		  NVIC_SystemReset();
-	  }
+//	  if(timeElapsed[0] > 14000000){
+//		  NVIC_SystemReset();
+//	  }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -785,11 +785,11 @@ void ControllLoopAndErrorHandler()
 //		setpointLast = 0;
 //		setpoint = 0;
 //	}
-	setpoint = 60.0;
-	PIDAVelocityController_Update(&PidVelo, setpoint, KalmanVar.MatState_Data[1]);
-	invTFOutput = InverseTFofMotor(setpointLast,setpoint);
-	PWMCHECKER = PidVelo.ControllerOut;
-	Drivemotor(PWMCHECKER);
+//	setpoint = 60.0;
+//	PIDAVelocityController_Update(&PidVelo, setpoint, KalmanVar.MatState_Data[1]);
+//	invTFOutput = InverseTFofMotor(setpointLast,setpoint);
+//	PWMCHECKER = PidVelo.ControllerOut;
+//	Drivemotor(PWMCHECKER);
 //	if (Robot.flagStartTime == 1)
 //	{
 //		StartTime = Micros();
@@ -798,40 +798,42 @@ void ControllLoopAndErrorHandler()
 //	CurrentTime = Micros();
 //	PredictTime = CurrentTime + 10000;
 //	TrajectoryEvaluation(&traject,StartTime,CurrentTime,PredictTime);
-//	if(Robot.MotorIsOn == 1)
-//	{
-//		if (Robot.flagStartTime == 1)
-//		{
-//			StartTime = Micros();
-//			Robot.flagStartTime = 0;
-//		}
-//		CurrentTime = Micros();
-//		PredictTime = CurrentTime + 10000;
-//		TrajectoryEvaluation(&traject,StartTime,CurrentTime,PredictTime);
-//		Robot.QX = traject.QX;
-//		Robot.QV = traject.QV;
-//		if(AbsVal(Robot.GoalPositon - Robot.Position) < 0.5 && AbsVal(Robot.Velocity) < 1.0)
-//		{
-//			PWMCHECKER = 0.0;
-//			Drivemotor(PWMCHECKER);
-//			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, GPIO_PIN_RESET);
-//			Robot.RunningFlag = 0;
-//			Robot.MotorIsOn = 0;
-//		}
-//		else
-//		{
-//			PIDAPositonController_Update(&PidPos, Robot.QX , Robot.Position);
-//			PIDAVelocityController_Update(&PidVelo, Robot.QV , Robot.Velocity);
-//			invTFOutput = InverseTFofMotor(traject.QV,traject.QVP);
-//			PWMCHECKER = PidVelo.ControllerOut + invTFOutput;
-//			Drivemotor(PWMCHECKER);
-//		}
-//	}
-//	else
-//	{
-//		PWMCHECKER = 0.0;
-//		Drivemotor(PWMCHECKER);
-//	}
+	if(Robot.MotorIsOn == 1)
+	{
+		if (Robot.flagStartTime == 1)
+		{
+			StartTime = Micros();
+			Robot.flagStartTime = 0;
+		}
+		CurrentTime = Micros();
+		PredictTime = CurrentTime + 10000;
+		TrajectoryEvaluationScurve(&traject,StartTime,CurrentTime,PredictTime);
+		Robot.QX = traject.QX;
+		Robot.QV = traject.QV;
+		if(AbsVal(Robot.GoalPositon - Robot.Position) < 0.5 && AbsVal(Robot.Velocity) < 1.0 && AbsVal(Robot.GoalPositon) == AbsVal(traject.QX))
+		{
+			PWMCHECKER = 0.0;
+			Drivemotor(PWMCHECKER);
+			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, GPIO_PIN_RESET);
+			Robot.RunningFlag = 0;
+			Robot.MotorIsOn = 0;
+			PIDAController_Init(&PidVelo);
+			PIDAController_Init(&PidPos);
+		}
+		else
+		{
+			PIDAPositonController_Update(&PidPos, Robot.QX , Robot.Position, Robot.GoalPositon - Robot.Position);
+			PIDAVelocityController_Update(&PidVelo, Robot.QV + PidPos.ControllerOut , Robot.Velocity,traject.Vmax);
+			invTFOutput = InverseTFofMotor(traject.QV,traject.QVP);
+			PWMCHECKER = PidVelo.ControllerOut + invTFOutput;
+			Drivemotor(PWMCHECKER);
+		}
+	}
+	else
+	{
+		PWMCHECKER = 0.0;
+		Drivemotor(PWMCHECKER);
+	}
 }
 
 /* Initialize the Ring Buffer */
@@ -1106,12 +1108,12 @@ void RobotstateManagement()
 	switch (RobotState)
 	{
 		case init:
-//			// Start Finding home Position
-//			Robot.flagSethome = 1;
-//			// Turn 360 Deg
-//			RobotRunToPositon(360.0,51.0);
-//			// Goto next State
-//			RobotState = FindHome;
+			// Start Finding home Position
+			Robot.flagSethome = 1;
+			// Turn 360 Deg
+			RobotRunToPositon(360.0,51.0);
+			// Goto next State
+			RobotState = FindHome;
 			break;
 		case FindHome:
 			if(Robot.RunningFlag == 0)
@@ -1142,12 +1144,12 @@ void RobotstateManagement()
 				if(goalFlag == 1 && goingToGoalFlag == 0){
 					goingToGoalFlag = 1;
 					Robot.GoalPositon = uartPos;
-					CoefficientAndTimeCalculation(&traject,Robot.Position,Robot.GoalPositon,Robot.QVMax);
+					CoefficientAndTimeCalculationScurve(&traject,Robot.Position,Robot.GoalPositon,Robot.QVMax);
 				}
 				else if(goalFlag == 2 && goingToGoalFlag == 0){
 					goingToGoalFlag = 1;
 					Robot.GoalPositon = goalDeg[uartGoal[goalIDX]-1];
-					CoefficientAndTimeCalculation(&traject,Robot.Position,Robot.GoalPositon,Robot.QVMax);
+					CoefficientAndTimeCalculationScurve(&traject,Robot.Position,Robot.GoalPositon,Robot.QVMax);
 				}
 			}
 
@@ -1355,7 +1357,7 @@ void RobotRunToPositon(float Destination , float VeloInput)
 {
 	Robot.GoalPositon = Destination;
 	Robot.QVMax = VeloInput;
-	CoefficientAndTimeCalculation(&traject,Robot.Position,Robot.GoalPositon,Robot.QVMax);
+	CoefficientAndTimeCalculationScurve(&traject,Robot.Position,Robot.GoalPositon,Robot.QVMax);
 	// Start Trajectory Evaluator
 	Robot.MotorIsOn = 1;
 	Robot.flagStartTime = 1;
@@ -1371,7 +1373,7 @@ void RobotResetAll()
 	EncoderRawData[1] = 0;
 	WrappingStep = 0;
 	// Reset Trajectory
-	CoefficientAndTimeCalculation(&traject,0.0,0.0,60);
+	CoefficientAndTimeCalculationScurve(&traject,0.0,0.0,60);
 	Robot.flagStartTime = 1;
 	StartTime = 0;
 	CurrentTime = 0;
