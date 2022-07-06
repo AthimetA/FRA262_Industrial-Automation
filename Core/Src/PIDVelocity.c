@@ -99,8 +99,8 @@ float PIDAVelocityController_Update(PIDAController *pid, float setpoint, float m
 //    	pid->Kd  = 0;
 //    }
 		pid->Kp  = 0.24;
-		pid->Ki  = 1.2;
-		pid->Kd  = 2.5;
+		pid->Ki  = 2.6;
+		pid->Kd  = 50.0;
 
 	// Compute error of each term
 

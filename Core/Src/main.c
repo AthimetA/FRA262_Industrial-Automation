@@ -58,8 +58,8 @@
 // ---------------------------------I2C---------------------------------- //
 // ---------------------------------CTRL--------------------------------- //
 #define dt  0.01f
-#define Kalmanvar  12000000.0f
-#define RVar 10000.0f
+#define Kalmanvar  9000.0f
+#define RVar 10.0f
 //#define Kalmanvar  2500.0f
 #define Pvar  1000.0f
 #define PWM_MAX 10000 // Max 10000
@@ -277,6 +277,7 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM5_Init();
   /* USER CODE BEGIN 2 */
+  HAL_Delay(1000);
   Ringbuf_Init();
   KalmanMatrixInit(&KalmanVar);
   TrajectorInit(&traject);
@@ -782,52 +783,53 @@ void ControllLoopAndErrorHandler()
 //		setpointLast = 0;
 //		setpoint = 0;
 //	}
-//	PIDAVelocityController_Update(&PidVelo, setpoint, KalmanVar.MatState_Data[1]);
-//	invTFOutput = InverseTFofMotor(setpointLast,setpoint);
-//	PWMCHECKER = PidVelo.ControllerOut + invTFOutput;
-//	Drivemotor(PWMCHECKER);
-	if (Robot.flagStartTime == 1)
-	{
-		StartTime = Micros();
-		Robot.flagStartTime = 0;
-	}
-	CurrentTime = Micros();
-	PredictTime = CurrentTime + 10000;
-	TrajectoryEvaluation(&traject,StartTime,CurrentTime,PredictTime);
-	if(Robot.MotorIsOn == 1)
-	{
-		if (Robot.flagStartTime == 1)
-		{
-			StartTime = Micros();
-			Robot.flagStartTime = 0;
-		}
-		CurrentTime = Micros();
-		PredictTime = CurrentTime + 10000;
-		TrajectoryEvaluation(&traject,StartTime,CurrentTime,PredictTime);
-		Robot.QX = traject.QX;
-		Robot.QV = traject.QV;
-		if(AbsVal(Robot.GoalPositon - Robot.Position) < 0.5 && AbsVal(Robot.Velocity) < 1.0)
-		{
-			PWMCHECKER = 0.0;
-			Drivemotor(PWMCHECKER);
-			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, GPIO_PIN_RESET);
-			Robot.RunningFlag = 0;
-			Robot.MotorIsOn = 0;
-		}
-		else
-		{
-			PIDAPositonController_Update(&PidPos, Robot.QX , Robot.Position);
-			PIDAVelocityController_Update(&PidVelo, Robot.QV + PidPos.ControllerOut , Robot.Velocity);
-			invTFOutput = InverseTFofMotor(traject.QV,traject.QVP);
-			PWMCHECKER = PidVelo.ControllerOut + invTFOutput;
-			Drivemotor(PWMCHECKER);
-		}
-	}
-	else
-	{
-		PWMCHECKER = 0.0;
-		Drivemotor(PWMCHECKER);
-	}
+	setpoint = 60.0;
+	PIDAVelocityController_Update(&PidVelo, setpoint, KalmanVar.MatState_Data[1]);
+	invTFOutput = InverseTFofMotor(setpointLast,setpoint);
+	PWMCHECKER = PidVelo.ControllerOut;
+	Drivemotor(PWMCHECKER);
+//	if (Robot.flagStartTime == 1)
+//	{
+//		StartTime = Micros();
+//		Robot.flagStartTime = 0;
+//	}
+//	CurrentTime = Micros();
+//	PredictTime = CurrentTime + 10000;
+//	TrajectoryEvaluation(&traject,StartTime,CurrentTime,PredictTime);
+//	if(Robot.MotorIsOn == 1)
+//	{
+//		if (Robot.flagStartTime == 1)
+//		{
+//			StartTime = Micros();
+//			Robot.flagStartTime = 0;
+//		}
+//		CurrentTime = Micros();
+//		PredictTime = CurrentTime + 10000;
+//		TrajectoryEvaluation(&traject,StartTime,CurrentTime,PredictTime);
+//		Robot.QX = traject.QX;
+//		Robot.QV = traject.QV;
+//		if(AbsVal(Robot.GoalPositon - Robot.Position) < 0.5 && AbsVal(Robot.Velocity) < 1.0)
+//		{
+//			PWMCHECKER = 0.0;
+//			Drivemotor(PWMCHECKER);
+//			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, GPIO_PIN_RESET);
+//			Robot.RunningFlag = 0;
+//			Robot.MotorIsOn = 0;
+//		}
+//		else
+//		{
+//			PIDAPositonController_Update(&PidPos, Robot.QX , Robot.Position);
+//			PIDAVelocityController_Update(&PidVelo, Robot.QV , Robot.Velocity);
+//			invTFOutput = InverseTFofMotor(traject.QV,traject.QVP);
+//			PWMCHECKER = PidVelo.ControllerOut + invTFOutput;
+//			Drivemotor(PWMCHECKER);
+//		}
+//	}
+//	else
+//	{
+//		PWMCHECKER = 0.0;
+//		Drivemotor(PWMCHECKER);
+//	}
 }
 
 /* Initialize the Ring Buffer */
