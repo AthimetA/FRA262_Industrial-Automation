@@ -69,7 +69,7 @@ typedef struct {
 	// Matrix PkCt
 	float32_t MatPkCt_Data[6];
 	// Matrix KYk
-	float32_t MatKYk_Data[2];
+	float32_t MatKYk_Data[3];
 	// Matrix KC
 	float32_t MatKC_Data[9];
 	// Matrix IKC

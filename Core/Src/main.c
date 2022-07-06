@@ -58,10 +58,10 @@
 // ---------------------------------I2C---------------------------------- //
 // ---------------------------------CTRL--------------------------------- //
 #define dt  0.01f
-#define Kalmanvar  50000.0f
+#define Kalmanvar  60000.0f
 #define RVar 10.0f
-#define PosVar 0.01f
-#define VeloVar 50000.0f
+#define PosVar 0.005f
+#define VeloVar 35000.0f
 //#define Kalmanvar  2500.0f
 #define Pvar  1000.0f
 #define PWM_MAX 10000 // Max 10000
@@ -321,9 +321,9 @@ int main(void)
 		CheckLoopStopTime = Micros();
 		CheckLoopDiffTime = CheckLoopStopTime - CheckLoopStartTime;
 	  }
-//	  if(timeElapsed[0] > 12000000){
-//		  NVIC_SystemReset();
-//	  }
+	  if(timeElapsed[0] > 12000000){
+		  NVIC_SystemReset();
+	  }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -785,11 +785,11 @@ void ControllLoopAndErrorHandler()
 //		setpointLast = 0;
 //		setpoint = 0;
 //	}
-//	setpoint = 60.0;
-//	PIDAVelocityController_Update(&PidVelo, setpoint, KalmanVar.MatState_Data[1]);
-//	invTFOutput = InverseTFofMotor(setpointLast,setpoint);
-//	PWMCHECKER = PidVelo.ControllerOut;
-//	Drivemotor(PWMCHECKER);
+	setpoint = 60.0;
+	PIDAVelocityController_Update(&PidVelo, setpoint, KalmanVar.MatState_Data[1]);
+	invTFOutput = InverseTFofMotor(setpointLast,setpoint);
+	PWMCHECKER = PidVelo.ControllerOut;
+	Drivemotor(PWMCHECKER);
 //	if (Robot.flagStartTime == 1)
 //	{
 //		StartTime = Micros();
