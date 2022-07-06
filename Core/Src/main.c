@@ -58,8 +58,10 @@
 // ---------------------------------I2C---------------------------------- //
 // ---------------------------------CTRL--------------------------------- //
 #define dt  0.01f
-#define Kalmanvar  9000.0f
+#define Kalmanvar  50000.0f
 #define RVar 10.0f
+#define PosVar 0.01f
+#define VeloVar 50000.0f
 //#define Kalmanvar  2500.0f
 #define Pvar  1000.0f
 #define PWM_MAX 10000 // Max 10000
@@ -142,33 +144,33 @@ float invTFOutput = 0;
 KalmanFilterVar KalmanVar = {
 		{1.0,dt,0.5*dt*dt,0.0,1.0,dt,0.0,0.0,1.0}, // A
 		{0.0,0.0,0.0}, // B
-		{0.0,1.0,0.0}, // C
+		{1.0,0.0,0.0,0.0,1.0,0.0}, // C
 		{0.0}, // D
 		{dt*dt*dt*dt*Kalmanvar/4,dt*dt*dt*Kalmanvar/2,dt*dt*Kalmanvar/2,dt*dt*dt*Kalmanvar/2,dt*dt*Kalmanvar,dt*Kalmanvar,dt*dt*Kalmanvar/2,dt*Kalmanvar,Kalmanvar},
 //		{0.0001}, //R
-		{RVar}, //R
+		{PosVar,RVar,RVar,VeloVar}, //R
 		{0,0,((dt*dt*dt))/6,0,0,((dt*dt))/2,0,0,dt},//G
 		{0.0,0.0,0.0}, // STATE X
 		{0.0,0.0,0.0}, // STATE X-1
 		{Pvar,0.0,0.0,0.0,Pvar,0.0,0.0,0.0,Pvar}, // STATE P
 		{Pvar,0.0,0.0,0.0,Pvar,0.0,0.0,0.0,Pvar}, // STATE P-1
-		{0.0}, // Y
-		{0.0}, // Z
-		{0.0}, // S
-		{0.0,0.0,0.0}, // K
+		{0.0,0.0}, // Y
+		{0.0,0.0}, // Z
+		{0.0,0.0,0.0,0.0}, // S
+		{0.0,0.0,0.0,0.0,0.0,0.0}, // K
 		{1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0}, // I
 		{0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0},	// Matrix At
 		{0.0,0.0,0.0},	// Matrix Gt
 		{0.0,0.0,0.0},	// Matrix GQ
-		{0.0,0.0,0.0},	// Matrix Ct
-		{0.0},	// Matrix Sinv
+		{0.0,0.0,0.0,0.0,0.0,0.0},	// Matrix Ct
+		{0.0,0.0,0.0,0.0},	// Matrix Sinv
 		{0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0},	// Matrix GQGt
-		{0.0,0.0,0.0},	// Matrix CPk
+		{0.0,0.0,0.0,0.0,0.0,0.0},	// Matrix CPk
 		{0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0},	// Matrix APK
 		{0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0},	// Matrix APKAt
-		{0.0},	// Matrix CXk
-		{0.0},	// Matrix CPkCt
-		{0.0,0.0,0.0},	// Matrix PkCt
+		{0.0,0.0},	// Matrix CXk
+		{0.0,0.0,0.0,0.0},	// Matrix CPkCt
+		{0.0,0.0,0.0,0.0,0.0,0.0},	// Matrix PkCt
 		{0.0,0.0,0.0},	// Matrix KYk
 		{0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0},	// Matrix KC
 		{0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0} 	// Matrix IKC
@@ -312,16 +314,16 @@ int main(void)
 		CheckLoopStartTime = Micros();
 		EncoderRead();
 //		KalmanFilterFunction(&KalmanVar,PositionDeg[0]);
-		KalmanFilterFunction(&KalmanVar,VelocityDeg);
+		KalmanFilterFunction(&KalmanVar,PositionDeg[0],VelocityDeg);
 		Robot.Position = PositionDeg[0];
 		Robot.Velocity = KalmanVar.MatState_Data[1];
 		ControllLoopAndErrorHandler();
 		CheckLoopStopTime = Micros();
 		CheckLoopDiffTime = CheckLoopStopTime - CheckLoopStartTime;
 	  }
-	  if(timeElapsed[0] > 12000000){
-		  NVIC_SystemReset();
-	  }
+//	  if(timeElapsed[0] > 12000000){
+//		  NVIC_SystemReset();
+//	  }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -783,11 +785,11 @@ void ControllLoopAndErrorHandler()
 //		setpointLast = 0;
 //		setpoint = 0;
 //	}
-	setpoint = 60.0;
-	PIDAVelocityController_Update(&PidVelo, setpoint, KalmanVar.MatState_Data[1]);
-	invTFOutput = InverseTFofMotor(setpointLast,setpoint);
-	PWMCHECKER = PidVelo.ControllerOut;
-	Drivemotor(PWMCHECKER);
+//	setpoint = 60.0;
+//	PIDAVelocityController_Update(&PidVelo, setpoint, KalmanVar.MatState_Data[1]);
+//	invTFOutput = InverseTFofMotor(setpointLast,setpoint);
+//	PWMCHECKER = PidVelo.ControllerOut;
+//	Drivemotor(PWMCHECKER);
 //	if (Robot.flagStartTime == 1)
 //	{
 //		StartTime = Micros();

@@ -1,3 +1,3 @@
 ../Core/Src/Kalman.c:11:6:KalmanMatrixInit	16	static
 ../Core/Src/Kalman.c:53:6:KalmanMatrixReset	24	static
-../Core/Src/Kalman.c:90:6:KalmanFilterFunction	16	static
+../Core/Src/Kalman.c:90:6:KalmanFilterFunction	24	static

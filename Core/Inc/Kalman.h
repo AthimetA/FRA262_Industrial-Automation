@@ -16,13 +16,13 @@ typedef struct {
 	// Matrix B
 	float32_t MatB_Data[3];
 	// Matrix C
-	float32_t MatC_Data[3];
+	float32_t MatC_Data[6];
 	// Matrix D
 	float32_t MatD_Data[1];
 	// Matrix Q
 	float32_t MatQ_Data[9];
 	// Matrix R
-	float32_t MatR_Data[1];
+	float32_t MatR_Data[4];
 	// Matrix G
 	float32_t MatG_Data[9];
 	// Matrix State
@@ -34,13 +34,13 @@ typedef struct {
 	// Matrix Predict Last
 	float32_t MatPredictLast_Data[9];
 	// Matrix Y
-	float32_t MatY_Data[1];
+	float32_t MatY_Data[2];
 	// Matrix Z
-	float32_t MatZ_Data[1];
+	float32_t MatZ_Data[2];
 	// Matrix S
-	float32_t MatS_Data[1];
+	float32_t MatS_Data[4];
 	// Matrix Kalman gain
-	float32_t MatK_Data[3];
+	float32_t MatK_Data[6];
 	// Matrix Iden
 	float32_t MatI_Data[9];
 	/* Matrix Buffer */
@@ -51,25 +51,25 @@ typedef struct {
 	// Matrix GQ
 	float32_t MatGQ_Data[9];
 	// Matrix Ct
-	float32_t MatCt_Data[3];
+	float32_t MatCt_Data[6];
 	// Matrix Sinv
-	float32_t MatSinv_Data[1];
+	float32_t MatSinv_Data[4];
 	// Matrix GQGt
 	float32_t MatGQGt_Data[9];
 	// Matrix CPk
-	float32_t MatCPk_Data[3];
+	float32_t MatCPk_Data[6];
 	// Matrix APK
 	float32_t MatAPk_Data[9];
 	// Matrix APKAt
 	float32_t MatAPkAt_Data[9];
 	// Matrix CXk
-	float32_t MatCXk_Data[1];
+	float32_t MatCXk_Data[2];
 	// Matrix CPkCt
-	float32_t MatCPkCt_Data[1];
+	float32_t MatCPkCt_Data[4];
 	// Matrix PkCt
-	float32_t MatPkCt_Data[3];
+	float32_t MatPkCt_Data[6];
 	// Matrix KYk
-	float32_t MatKYk_Data[3];
+	float32_t MatKYk_Data[2];
 	// Matrix KC
 	float32_t MatKC_Data[9];
 	// Matrix IKC
@@ -113,6 +113,6 @@ typedef struct {
 
 void KalmanMatrixReset(KalmanFilterVar *KalmanVar , float Pvar);
 void KalmanMatrixInit(KalmanFilterVar *KalmanVar);
-void KalmanFilterFunction(KalmanFilterVar *KalmanVar,float32_t PositionDeg);
+void KalmanFilterFunction(KalmanFilterVar *KalmanVar,float32_t PositionDeg,float32_t VelocityDeg);
 
 #endif /* INC_KALMAN_H_ */
