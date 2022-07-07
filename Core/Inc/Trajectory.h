@@ -52,10 +52,13 @@ typedef struct {
 	float QVP;
 	float QX;
 
-	// Matrix A
 	float TimeInit;
 	float TimeFinal;
 	float VMCal;
+
+	// Mode 0 = S-curve, 1 = Quintic
+	uint8_t TrajectoryMode ;
+	float TrajectoryFlag;
 
 	arm_matrix_instance_f32 MatTime;
 	arm_matrix_instance_f32 MatTimeINV;
@@ -93,11 +96,7 @@ void Robotinit(RobotManagement *Robot);
 void RobotSetHome(RobotManagement *Robot , float homePoint);
 float AbsVal(float number);
 void TrajectorInit(TrajectoryG *traject);
-
-void CoefficientAndTimeCalculationQuintic(TrajectoryG *traject, float Qinitial, float Qfinal, float Velomax);
-void TrajectoryEvaluationQuintic(TrajectoryG *traject , uint64_t StartTime, uint64_t CurrentTime,uint64_t PredictTime);
-
-void CoefficientAndTimeCalculationScurve(TrajectoryG *traject, float Qinitial, float Qfinal, float Veloinput);
-void TrajectoryEvaluationScurve(TrajectoryG *traject , uint64_t StartTime, uint64_t CurrentTime, uint64_t PredictTime);
+void CoefficientAndTimeCalculation(TrajectoryG *traject, float Qinitial, float Qfinal, float Velomax);
+void TrajectoryEvaluation(TrajectoryG *traject , uint64_t StartTime, uint64_t CurrentTime,uint64_t PredictTime);
 
 #endif /* INC_TRAJECTORY_H_ */

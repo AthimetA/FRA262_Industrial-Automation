@@ -804,10 +804,11 @@ void ControllLoopAndErrorHandler()
 		{
 			StartTime = Micros();
 			Robot.flagStartTime = 0;
+			traject.TrajectoryFlag = 0;
 		}
 		CurrentTime = Micros();
 		PredictTime = CurrentTime + 10000;
-		TrajectoryEvaluationScurve(&traject,StartTime,CurrentTime,PredictTime);
+		TrajectoryEvaluation(&traject,StartTime,CurrentTime,PredictTime);
 		Robot.QX = traject.QX;
 		Robot.QV = traject.QV;
 		if(AbsVal(Robot.GoalPositon - Robot.Position) < 0.5 && AbsVal(Robot.Velocity) < 1.0 && AbsVal(Robot.GoalPositon) == AbsVal(traject.QX))
@@ -822,8 +823,8 @@ void ControllLoopAndErrorHandler()
 		}
 		else
 		{
-			PIDAPositonController_Update(&PidPos, Robot.QX , Robot.Position, Robot.GoalPositon - Robot.Position);
-			PIDAVelocityController_Update(&PidVelo, Robot.QV + PidPos.ControllerOut , Robot.Velocity,traject.Vmax);
+			PIDAPositonController_Update(&PidPos, &traject, Robot.QX , Robot.Position, Robot.QV ,traject.Vmax);
+			PIDAVelocityController_Update(&PidVelo, &traject, Robot.QV + PidPos.ControllerOut , Robot.Velocity, Robot.QV ,traject.Vmax);
 			invTFOutput = InverseTFofMotor(traject.QV,traject.QVP);
 			PWMCHECKER = PidVelo.ControllerOut + invTFOutput;
 			Drivemotor(PWMCHECKER);
@@ -1144,12 +1145,12 @@ void RobotstateManagement()
 				if(goalFlag == 1 && goingToGoalFlag == 0){
 					goingToGoalFlag = 1;
 					Robot.GoalPositon = uartPos;
-					CoefficientAndTimeCalculationScurve(&traject,Robot.Position,Robot.GoalPositon,Robot.QVMax);
+					CoefficientAndTimeCalculation(&traject,Robot.Position,Robot.GoalPositon,Robot.QVMax);
 				}
 				else if(goalFlag == 2 && goingToGoalFlag == 0){
 					goingToGoalFlag = 1;
 					Robot.GoalPositon = goalDeg[uartGoal[goalIDX]-1];
-					CoefficientAndTimeCalculationScurve(&traject,Robot.Position,Robot.GoalPositon,Robot.QVMax);
+					CoefficientAndTimeCalculation(&traject,Robot.Position,Robot.GoalPositon,Robot.QVMax);
 				}
 			}
 
@@ -1357,13 +1358,14 @@ void RobotRunToPositon(float Destination , float VeloInput)
 {
 	Robot.GoalPositon = Destination;
 	Robot.QVMax = VeloInput;
-	CoefficientAndTimeCalculationScurve(&traject,Robot.Position,Robot.GoalPositon,Robot.QVMax);
+	CoefficientAndTimeCalculation(&traject,Robot.Position,Robot.GoalPositon,Robot.QVMax);
 	// Start Trajectory Evaluator
 	Robot.MotorIsOn = 1;
 	Robot.flagStartTime = 1;
 	Robot.RunningFlag = 1;
 	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, GPIO_PIN_SET);
 }
+
 
 void RobotResetAll()
 {
@@ -1373,7 +1375,7 @@ void RobotResetAll()
 	EncoderRawData[1] = 0;
 	WrappingStep = 0;
 	// Reset Trajectory
-	CoefficientAndTimeCalculationScurve(&traject,0.0,0.0,60);
+	CoefficientAndTimeCalculation(&traject,0.0,0.0,60);
 	Robot.flagStartTime = 1;
 	StartTime = 0;
 	CurrentTime = 0;

@@ -8,6 +8,8 @@
 #ifndef INC_PIDVELOCITY_H_
 #define INC_PIDVELOCITY_H_
 
+#include "Trajectory.h"
+
 typedef struct {
 
 	/* Controller gains */
@@ -30,11 +32,10 @@ typedef struct {
 	float ControllerOut;
 	float ControllerLastOut;
 
-	float KpUse;
 } PIDAController;
 
 void PIDAController_Init(PIDAController *pid);
-float PIDAVelocityController_Update(PIDAController *pid, float setpoint, float measurement,float VMCal);
-float PIDAPositonController_Update(PIDAController *pid, float setpoint, float measurement, float Distance);
+float PIDAVelocityController_Update(PIDAController *pid, TrajectoryG *traject, float setpoint, float measurement,float VfromTraject,float VMCal);
+float PIDAPositonController_Update(PIDAController *pid, TrajectoryG *traject, float setpoint, float measurement,float VfromTraject,float VMCal);
 
 #endif /* INC_PIDVELOCITY_H_ */

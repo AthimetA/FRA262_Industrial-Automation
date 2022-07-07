@@ -6,7 +6,6 @@
  */
 
 #include "PIDVelocity.h"
-#include "Trajectory.h"
 
 #define PID_LIM_MIN_INT -10000.0f
 #define PID_LIM_MAX_INT  10000.0f
@@ -27,44 +26,39 @@ void PIDAController_Init(PIDAController *pid)
 	pid->OutputMin = PID_LIM_MIN_INT;
 }
 
-float PIDAPositonController_Update(PIDAController *pid, float setpoint, float measurement, float Distance)
+float PIDAPositonController_Update(PIDAController *pid,TrajectoryG *traject, float setpoint, float measurement,float VfromTraject,float VMCal)
 {
     float error = setpoint - measurement;
     float errorDZ = error;
 
-    // Quintic Trajectory
-//    if(AbsVal(setpoint) < AbsVal(0.05*Distance)) // 10 deg/s
-//    {
-//    	pid->Kp  = 1.0;
-//    	pid->Ki  = 0.0;
-//    	pid->Kd  = 0.0;
-//    }
-//    else
-//    {
-//    	pid->Kp  = 3.0;
-//    	pid->Ki  = 0.0;
-//    	pid->Kd  = 0.0;
-//    }
-//	pid->Kp  = 6.0;
-//	pid->Ki  = 0.0;
-//	pid->Kd  = 0.0;
-
-    // Scurve Trajectory
-    if(AbsVal(setpoint) <= AbsVal(0.1*Distance)) // 10 deg/s
-    {
-//    	pid->Kp  = 0.2;
-//    	pid->Ki  = 6.0;
-//    	pid->Kd  = 0.0;
-    	pid->Kp  = 6.0;
-    	pid->Ki  = 0.05;
-    	pid->Kd  = 0.0;
-    }
-    else
-    {
-    	pid->Kp  = 6.0;
-    	pid->Ki  = 0.05;
-    	pid->Kd  = 0.0;
-    }
+	if(traject ->TrajectoryMode == 0) // S-curve
+	{
+	    if(AbsVal(VfromTraject) < AbsVal(VMCal) && traject->TrajectoryFlag == 0)
+	    {
+	    	pid->Kp  = 10.0;
+	    	pid->Ki  = 0.0;
+	    	pid->Kd  = 0.0;
+	    }
+	    else if (AbsVal(VfromTraject) == AbsVal(VMCal))
+	    {
+	    	pid->Kp  = 6.0;
+	    	pid->Ki  = 0.0;
+	    	pid->Kd  = 0.0;
+	    	traject->TrajectoryFlag = 1;
+	    }
+	    else if (AbsVal(VfromTraject) == AbsVal(VMCal) && traject->TrajectoryFlag == 1)
+	    {
+	    	pid->Kp  = 6.0;
+	    	pid->Ki  = 0.0;
+	    	pid->Kd  = 0.0;
+	    }
+	}
+	else if(traject ->TrajectoryMode == 1) //Quintic
+	{
+			pid->Kp  = 6.0;
+			pid->Ki  = 0.0;
+			pid->Kd  = 0.0;
+	}
 	// Compute error of each term
 
     pid->proportionalOutput = (pid->Kp*errorDZ) - (pid->Kp * pid->Last1Error);
@@ -98,43 +92,38 @@ float PIDAPositonController_Update(PIDAController *pid, float setpoint, float me
 
 
 
-float PIDAVelocityController_Update(PIDAController *pid, float setpoint, float measurement,float VMCal){
+float PIDAVelocityController_Update(PIDAController *pid,TrajectoryG *traject, float setpoint, float measurement,float VfromTraject,float VMCal){
 
     float error = setpoint - measurement;
     float errorDZ = error;
-
-//    if(AbsVal(setpoint) < AbsVal(0.07*VMCal)) // 10 deg/s
-//    {
-//		pid->Kp  = 20.0;
-//		pid->Ki  = 4.2;
-//		pid->Kd  = 2.25;
-//    }
-//    else
-//    {
-//		pid->Kp  = 0.27;
-//		pid->Ki  = 2.2;
-//		pid->Kd  = 0.0095;
-//    }
-//	pid->Kp  = 0.27;
-//	pid->Ki  = 2.2;
-//	pid->Kd  = 0.0095;
-
-    // Scurve Trajectory
-//    if(AbsVal(setpoint) < VMCal) // 10 deg/s
-//    {
-//    	pid->Kp  = 0.27;
-//		pid->Ki  = 2.2;
-//		pid->Kd  = 0.0095;
-//    }
-//    else
-//    {
-//    	pid->Kp  = 0.2;
-//    	pid->Ki  = 0.1;
-//    	pid->Kd  = 0;
-//    }
-	pid->Kp  = 0.160041136848727;
-	pid->Ki  = 3.13946329365331;
-	pid->Kd  = 0.0;
+	if(traject ->TrajectoryMode == 0) // S-curve
+	{
+	    if(AbsVal(VfromTraject) < AbsVal(VMCal) && traject->TrajectoryFlag == 0) // 10 deg/s
+	    {
+	    	pid->Kp  = 20.0;
+	    	pid->Ki  = 1.6;
+	    	pid->Kd  = 2.5;
+	    }
+	    else if (AbsVal(VfromTraject) == AbsVal(VMCal))
+	    {
+	    	pid->Kp  = 0.160041136848727;
+	    	pid->Ki  = 3.13946329365331;
+	    	pid->Kd  = 0;
+	    	traject->TrajectoryFlag = 1;
+	    }
+	    else if (AbsVal(VfromTraject) == AbsVal(VMCal) && traject->TrajectoryFlag == 1)
+	    {
+	    	pid->Kp  = 0.27;
+	    	pid->Ki  = 2.2;
+	    	pid->Kd  = 0;
+	    }
+	}
+	else if(traject ->TrajectoryMode == 1) //Quintic
+	{
+			pid->Kp  = 0.27;
+			pid->Ki  = 2.2;
+			pid->Kd  = 0.0095;
+	}
 	// Compute error of each term
 
     pid->proportionalOutput = (pid->Kp*errorDZ) - (pid->Kp * pid->Last1Error);
