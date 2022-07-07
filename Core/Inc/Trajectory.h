@@ -74,6 +74,7 @@ typedef struct {
 	// Current Status
 	float Position;
 	float Velocity;
+	float Acceleration;
 	uint16_t CurrentStation;
 	// Goal Position, Station
 	float GoalPositon;

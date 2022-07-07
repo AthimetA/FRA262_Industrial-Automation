@@ -12,6 +12,7 @@ void Robotinit(RobotManagement *Robot)
 {
 	  Robot -> Position = 0.0;
 	  Robot -> Velocity = 0.0;
+	  Robot -> Acceleration = 0.0;
 	  Robot -> CurrentStation = 0;
 	  Robot -> GoalPositon = 0.0;
 	  Robot -> HomePositon = 0.0;

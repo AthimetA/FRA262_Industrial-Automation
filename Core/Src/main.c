@@ -316,6 +316,7 @@ int main(void)
 		KalmanFilterFunction(&KalmanVar,PositionDeg[0],VelocityDeg);
 		Robot.Position = PositionDeg[0];
 		Robot.Velocity = KalmanVar.MatState_Data[1];
+		Robot.Acceleration = KalmanVar.MatState_Data[2];
 		ControllLoopAndErrorHandler();
 		CheckLoopStopTime = Micros();
 		CheckLoopDiffTime = CheckLoopStopTime - CheckLoopStartTime;
