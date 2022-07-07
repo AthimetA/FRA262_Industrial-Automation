@@ -75,7 +75,7 @@ void CoefficientAndTimeCalculation(TrajectoryG *traject, float Qinitial, float Q
 	// Find Speed limit
 	float DistanceABS = AbsVal(traject -> QRelative);
 	// Check Trajectory mode
-	if(DistanceABS <= 1.0)
+	if(DistanceABS <= 0.0 && DistanceABS >= 0.0)
 	{
 		traject -> TrajectoryMode = 1;
 	}

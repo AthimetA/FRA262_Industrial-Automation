@@ -106,8 +106,8 @@ float PIDAVelocityController_Update(PIDAController *pid,TrajectoryG *traject, fl
 	    }
 	    else if (AbsVal(VfromTraject) == AbsVal(VMCal))
 	    {
-	    	pid->Kp  = 0.160041136848727;
-	    	pid->Ki  = 3.13946329365331;
+	    	pid->Kp  = 0.16;
+	    	pid->Ki  = 3.14;
 	    	pid->Kd  = 0;
 	    	traject->TrajectoryFlag = 1;
 	    }
@@ -122,7 +122,7 @@ float PIDAVelocityController_Update(PIDAController *pid,TrajectoryG *traject, fl
 	{
 			pid->Kp  = 0.27;
 			pid->Ki  = 2.2;
-			pid->Kd  = 0.0095;
+			pid->Kd  = 0;
 	}
 	// Compute error of each term
 

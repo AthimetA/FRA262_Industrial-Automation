@@ -313,7 +313,6 @@ int main(void)
 		ControlLoopTime  = Micros();
 		CheckLoopStartTime = Micros();
 		EncoderRead();
-//		KalmanFilterFunction(&KalmanVar,PositionDeg[0]);
 		KalmanFilterFunction(&KalmanVar,PositionDeg[0],VelocityDeg);
 		Robot.Position = PositionDeg[0];
 		Robot.Velocity = KalmanVar.MatState_Data[1];
