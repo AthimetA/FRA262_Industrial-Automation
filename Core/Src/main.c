@@ -1192,16 +1192,13 @@ void EndEffstateManagement()
 			// Set up Read
 			I2CTxDataBuffer[0] = 0x23;
 			I2CWriteFcn(I2CTxDataBuffer);
-			check[0]++;
 			if(hi2c1.State == HAL_I2C_STATE_READY)
 			{
 				I2CReadFcn(I2CRxDataBuffer);
-				check[1]++;
 				if(hi2c1.State == HAL_I2C_STATE_READY)
 				{
 					if(I2CRxDataBuffer[0] == 0x78)
 					{
-						check[2]++;
 						EndEffState = OpenLaser;
 						openLaserWriteFlag = 1;
 						I2CEndEffectorWriteFlag = 1;
@@ -1209,7 +1206,6 @@ void EndEffstateManagement()
 					}
 					else
 					{
-						check[3]++;
 						EndEffState = idle;
 					}
 				}
@@ -1219,7 +1215,6 @@ void EndEffstateManagement()
 		case OpenLaser:
 			// Open Laser
 			if(openLaserWriteFlag == 1){
-				check[4]++;
 				I2CTxDataBuffer[0] = 0x45;
 				I2CWriteFcn(I2CTxDataBuffer);
 				openLaserWriteFlag = 0;
@@ -1249,7 +1244,6 @@ void EndEffstateManagement()
 				I2CEndEffectorReadFlag =  1;
 				if(I2CRxDataBuffer[0] == 0x78)
 				{
-					check[5]++;
 					HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, GPIO_PIN_RESET);
 					EndEffState = idle;
 					EndEffStatus = AwaitCommand;
