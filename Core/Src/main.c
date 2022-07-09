@@ -62,7 +62,6 @@
 #define RVar 10.0f
 #define PosVar 0.005f
 #define VeloVar 35000.0f
-//#define Kalmanvar  2500.0f
 #define Pvar  1000.0f
 #define PWM_MAX 10000 // Max 10000
 // ---------------------------------CTRL--------------------------------- //
@@ -133,7 +132,6 @@ uint8_t ACK_2[2] = { 70, 0b01101110 };
  uint64_t _micro = 0;
  uint64_t timeElapsed[2] = {0};
  uint64_t EndEffLoopTime = 0;
- uint64_t check[10] = {0};
 /* Setup EncoderData */
 int EncoderRawData[2] = {0};
 int WrappingStep = 0;
@@ -147,7 +145,6 @@ KalmanFilterVar KalmanVar = {
 		{1.0,0.0,0.0,0.0,1.0,0.0}, // C
 		{0.0}, // D
 		{dt*dt*dt*dt*Kalmanvar/4,dt*dt*dt*Kalmanvar/2,dt*dt*Kalmanvar/2,dt*dt*dt*Kalmanvar/2,dt*dt*Kalmanvar,dt*Kalmanvar,dt*dt*Kalmanvar/2,dt*Kalmanvar,Kalmanvar},
-//		{0.0001}, //R
 		{PosVar,RVar,RVar,VeloVar}, //R
 		{0,0,((dt*dt*dt))/6,0,0,((dt*dt))/2,0,0,dt},//G
 		{0.0,0.0,0.0}, // STATE X
@@ -195,11 +192,6 @@ static uint64_t EmergencycalloutTime =0;
 uint8_t EmertimeoutFlag =0;
 uint64_t endEffLoopTime = 0;
 uint64_t ControlLoopTime = 0;
-
-// Test Variable
-float setpoint = 0.0f;
-float setpointLast = 0.0f;
-uint8_t checkemer = 0;
 // ---------------------------------CTRL--------------------------------- //
 // ---------------------------------I2C---------------------------------- //
 uint8_t I2CEndEffectorReadFlag = 0;
@@ -207,6 +199,12 @@ uint8_t I2CEndEffectorWriteFlag = 0;
 static uint8_t I2CRxDataBuffer[EndEffRxBuf_SIZE] ={0};
 static uint8_t I2CTxDataBuffer[EndEffTxBuf_SIZE] ={0};
 // ---------------------------------I2C---------------------------------- //
+
+// ****------------Test Code-----------***** //
+float setpoint = 0.0f;
+float setpointLast = 0.0f;
+uint8_t checkemer = 0;
+// ****------------Test Code-----------***** //
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -279,7 +277,6 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM5_Init();
   /* USER CODE BEGIN 2 */
-//  HAL_Delay(1000);
   Ringbuf_Init();
   KalmanMatrixInit(&KalmanVar);
   TrajectorInit(&traject);
@@ -291,9 +288,10 @@ int main(void)
   PositionRaw=EncoderRawData[0];
   PIDAController_Init(&PidVelo);
   PIDAController_Init(&PidPos);
-  // Reset all Parameter
-  Robotinit(&Robot);
+  // ****------------Test Code-----------***** //
+//  Robotinit(&Robot);
 //  RobotRunToPositon(360.0,51.0);
+  // ****------------Test Code-----------***** //
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -321,9 +319,6 @@ int main(void)
 		CheckLoopStopTime = Micros();
 		CheckLoopDiffTime = CheckLoopStopTime - CheckLoopStartTime;
 	  }
-//	  if(timeElapsed[0] > 14000000){
-//		  NVIC_SystemReset();
-//	  }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -774,6 +769,7 @@ float InverseTFofMotor(float Velo, float PredictVelo)
 
 void ControllLoopAndErrorHandler()
 {
+	// ****------------Test Code-----------***** //
 //	if(setpoint < 10.0)
 //	{
 //		setpointLast = setpoint;
@@ -798,6 +794,7 @@ void ControllLoopAndErrorHandler()
 //	CurrentTime = Micros();
 //	PredictTime = CurrentTime + 10000;
 //	TrajectoryEvaluation(&traject,StartTime,CurrentTime,PredictTime);
+	// ****------------Test Code-----------***** //
 	if(Robot.MotorIsOn == 1)
 	{
 		if (Robot.flagStartTime == 1)
@@ -1174,7 +1171,6 @@ void RobotstateManagement()
 			Robot.MotorIsOn = 0;
 			PIDAController_Init(&PidVelo);
 			PIDAController_Init(&PidPos);
-			// Luv u pls pass
 			break;
 	}
 }
@@ -1248,9 +1244,11 @@ void EndEffstateManagement()
 					EndEffState = idle;
 					EndEffStatus = AwaitCommand;
 					endEffFlag = 0;
+					// Emergency
 					if(RobotState != Emergency){
 						RobotState = NormalOperation;
 					}
+					// MultiStation
 					if(doingTaskFlag == 1){
 						goalIDX++;
 						if(goalIDX > goalAmount-1){
@@ -1303,13 +1301,15 @@ void I2CReadFcn(uint8_t *Rdata) {
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-	if(GPIO_Pin == GPIO_PIN_13)
-	{
+	// ****------------Test Code-----------***** //
+//	if(GPIO_Pin == GPIO_PIN_13)
+//	{
 //		I2CEndEffectorWriteFlag = 1;
 //		I2CEndEffectorReadFlag =  1;
 //		EndEffState = CheckBeforRun;
-		HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_3);
-	}
+//		HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_3);
+//	}
+	// ****------------Test Code-----------***** //
 	if(GPIO_Pin == GPIO_PIN_10)
 	{
 		// Proxi Sensor
@@ -1403,7 +1403,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	if (htim == &htim5){
 		if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_5) == GPIO_PIN_SET)
 		{
-			check[7]++;
 			if(EndEffState != idle)
 			{
 				RobotState = EndEff;
@@ -1430,7 +1429,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 		}
 		else
 		{
-			check[8]++;
 			RobotState = Emergency;
 			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
 		}
