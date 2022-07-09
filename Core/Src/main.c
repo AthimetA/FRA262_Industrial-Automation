@@ -1340,7 +1340,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 
 		if(Micros() - EmergencycalloutTime > 100000 && EmertimeoutFlag == 1)
 		{
-			check[6]++;
 			EmergencycalloutTime = Micros();
 			EmertimeoutFlag = 0;
 			//Docode
