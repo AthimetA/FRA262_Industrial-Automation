@@ -1206,7 +1206,7 @@ void EndEffstateManagement()
 					}
 					else
 					{
-						EndEffState = idle;
+						EndEffState = CheckBeforRun;
 					}
 				}
 			}
