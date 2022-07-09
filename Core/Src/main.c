@@ -823,7 +823,7 @@ void ControllLoopAndErrorHandler()
 			PIDAPositonController_Update(&PidPos, &traject, Robot.QX , Robot.Position, Robot.QV ,traject.Vmax);
 			PIDAVelocityController_Update(&PidVelo, &traject, Robot.QV + PidPos.ControllerOut , Robot.Velocity, Robot.QV ,traject.Vmax);
 			invTFOutput = InverseTFofMotor(traject.QV,traject.QVP);
-			PWMCHECKER = PidVelo.ControllerOut + invTFOutput + (1550.0* traject.gain);
+			PWMCHECKER = PidVelo.ControllerOut + invTFOutput;
 			Drivemotor(PWMCHECKER);
 		}
 	}
