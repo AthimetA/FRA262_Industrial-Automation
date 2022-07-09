@@ -823,7 +823,7 @@ void ControllLoopAndErrorHandler()
 			PIDAPositonController_Update(&PidPos, &traject, Robot.QX , Robot.Position, Robot.QV ,traject.Vmax);
 			PIDAVelocityController_Update(&PidVelo, &traject, Robot.QV + PidPos.ControllerOut , Robot.Velocity, Robot.QV ,traject.Vmax);
 			invTFOutput = InverseTFofMotor(traject.QV,traject.QVP);
-			PWMCHECKER = PidVelo.ControllerOut + invTFOutput;
+			PWMCHECKER = PidVelo.ControllerOut + invTFOutput + (1550.0* traject.gain);
 			Drivemotor(PWMCHECKER);
 		}
 	}
@@ -1077,11 +1077,14 @@ void UARTstateManagement(uint8_t *Mainbuffer)
 				// Mode 12
 				case 0b10011100:
 					modeNo = 12;
-					RobotState = EndEff;
-					I2CEndEffectorWriteFlag = 1;
-					I2CEndEffectorReadFlag =  1;
-					EndEffState = CheckBeforRun;
-					endEffFlag = 1;
+					if(RobotState != Emergency)
+					{
+						RobotState = EndEff;
+						I2CEndEffectorWriteFlag = 1;
+						I2CEndEffectorReadFlag =  1;
+						EndEffState = CheckBeforRun;
+						endEffFlag = 1;
+					}
 					HAL_UART_Transmit_DMA(&UART, ACK_1, 2);
 					break;
 				// Mode 13
