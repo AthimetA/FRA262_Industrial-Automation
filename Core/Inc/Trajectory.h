@@ -84,6 +84,7 @@ typedef struct {
 	// Trajectory Data
 	float QX;
 	float QV;
+	float QA;
 	float QVMax;
 	// On/Off Motor
 	uint8_t MotorIsOn;

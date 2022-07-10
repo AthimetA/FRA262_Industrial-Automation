@@ -797,6 +797,7 @@ void ControllLoopAndErrorHandler()
 	// ****------------Test Code-----------***** //
 	if(Robot.MotorIsOn == 1)
 	{
+		// Start Trajectory
 		if (Robot.flagStartTime == 1)
 		{
 			StartTime = Micros();
@@ -808,9 +809,12 @@ void ControllLoopAndErrorHandler()
 		TrajectoryEvaluation(&traject,StartTime,CurrentTime,PredictTime);
 		Robot.QX = traject.QX;
 		Robot.QV = traject.QV;
-		if(AbsVal(Robot.GoalPositon - Robot.Position) < 0.5 && AbsVal(Robot.Velocity) < 1.0 && AbsVal(Robot.GoalPositon) == AbsVal(traject.QX))
+		Robot.QA = traject.QA;
+		// Control Loop
+		if(AbsVal(Robot.GoalPositon - Robot.Position) < 0.5 && AbsVal(Robot.Velocity) < 1.0 && AbsVal(Robot.GoalPositon) == AbsVal(Robot.QX))
 		{
-			PWMCHECKER = 0.0;
+			// Set output to 0 [Motor off]
+ 			PWMCHECKER = 0.0;
 			Drivemotor(PWMCHECKER);
 			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3, GPIO_PIN_RESET);
 			Robot.RunningFlag = 0;
@@ -832,6 +836,7 @@ void ControllLoopAndErrorHandler()
 		PWMCHECKER = 0.0;
 		Drivemotor(PWMCHECKER);
 	}
+
 }
 
 /* Initialize the Ring Buffer */

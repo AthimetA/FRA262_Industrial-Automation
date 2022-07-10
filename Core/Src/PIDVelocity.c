@@ -58,6 +58,7 @@ float PIDAPositonController_Update(PIDAController *pid,TrajectoryG *traject, flo
 			pid->Ki  = 0.0;
 			pid->Kd  = 0.0;
 	}
+
 	// Compute error of each term
 
     pid->proportionalOutput = (pid->Kp*error) - (pid->Kp * pid->Last1Error);

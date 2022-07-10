@@ -18,6 +18,7 @@ void Robotinit(RobotManagement *Robot)
 	  Robot -> HomePositon = 0.0;
 	  Robot -> QX = 0.0;
 	  Robot -> QV = 0.0;
+	  Robot -> QA = 0.0;
 	  Robot -> QVMax = 0.0;
 
 	  Robot -> flagSethome = 0;
@@ -87,14 +88,11 @@ void CoefficientAndTimeCalculation(TrajectoryG *traject, float Qinitial, float Q
 
 	if(DistanceABS >= 130)
 	{
-//		traject -> Vmax = 60;
 		traject -> Vmax = 51;
 	}
 	else
 	{
-//		traject -> Vmax = (-0.0000003*(DistanceABS*DistanceABS*DistanceABS*DistanceABS))+(0.00009*(DistanceABS*DistanceABS*DistanceABS))-(0.0115*(DistanceABS*DistanceABS))+(0.995*DistanceABS)+7.1259;
 		traject -> Vmax = (-0.0000001*(DistanceABS*DistanceABS*DistanceABS*DistanceABS))+(0.00005*(DistanceABS*DistanceABS*DistanceABS))-(0.0082*(DistanceABS*DistanceABS))+(0.8134*DistanceABS)+4.0415;
-		//		traject -> Vmax = (-0.0000002*(DistanceABS*DistanceABS*DistanceABS*DistanceABS))+(0.00007*(DistanceABS*DistanceABS*DistanceABS))-(0.0092*(DistanceABS*DistanceABS))+(0.8419*DistanceABS)+4.8492;
 	}
 
 	if(traject -> Vmax > Veloinput)
