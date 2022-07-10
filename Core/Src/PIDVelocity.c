@@ -29,7 +29,6 @@ void PIDAController_Init(PIDAController *pid)
 float PIDAPositonController_Update(PIDAController *pid,TrajectoryG *traject, float setpoint, float measurement,float VfromTraject,float VMCal)
 {
     float error = setpoint - measurement;
-    float errorDZ = error;
 
 	if(traject ->TrajectoryMode == 0) // S-curve
 	{
@@ -61,11 +60,11 @@ float PIDAPositonController_Update(PIDAController *pid,TrajectoryG *traject, flo
 	}
 	// Compute error of each term
 
-    pid->proportionalOutput = (pid->Kp*errorDZ) - (pid->Kp * pid->Last1Error);
+    pid->proportionalOutput = (pid->Kp*error) - (pid->Kp * pid->Last1Error);
 
-    pid->integratorOutput = (pid->Ki * errorDZ);
+    pid->integratorOutput = (pid->Ki * error);
 
-    pid->differentiatorOutput = pid->Kd *(errorDZ -(2.0* pid->Last1Error) + pid->Last2Error)	;
+    pid->differentiatorOutput = pid->Kd *(error -(2.0* pid->Last1Error) + pid->Last2Error)	;
 
 	// Compute output and apply limits
 
@@ -85,7 +84,7 @@ float PIDAPositonController_Update(PIDAController *pid,TrajectoryG *traject, flo
 
     pid->ControllerLastOut = pid->ControllerOut;
 	pid->Last2Error = pid->Last1Error;
-	pid->Last1Error = errorDZ;
+	pid->Last1Error = error;
 
 	return pid->ControllerOut;
 }
@@ -95,7 +94,6 @@ float PIDAPositonController_Update(PIDAController *pid,TrajectoryG *traject, flo
 float PIDAVelocityController_Update(PIDAController *pid,TrajectoryG *traject, float setpoint, float measurement,float VfromTraject,float VMCal){
 
     float error = setpoint - measurement;
-    float errorDZ = error;
 	if(traject ->TrajectoryMode == 0) // S-curve
 	{
 	    if(AbsVal(VfromTraject) < AbsVal(VMCal) && traject->TrajectoryFlag == 0) // 10 deg/s
@@ -126,11 +124,11 @@ float PIDAVelocityController_Update(PIDAController *pid,TrajectoryG *traject, fl
 	}
 	// Compute error of each term
 
-    pid->proportionalOutput = (pid->Kp*errorDZ) - (pid->Kp * pid->Last1Error);
+    pid->proportionalOutput = (pid->Kp*error) - (pid->Kp * pid->Last1Error);
 
-    pid->integratorOutput = (pid->Ki * errorDZ);
+    pid->integratorOutput = (pid->Ki * error);
 
-    pid->differentiatorOutput = pid->Kd *(errorDZ -(2.0* pid->Last1Error) + pid->Last2Error)	;
+    pid->differentiatorOutput = pid->Kd *(error -(2.0* pid->Last1Error) + pid->Last2Error)	;
 
 	// Compute output and apply limits
 
@@ -150,7 +148,7 @@ float PIDAVelocityController_Update(PIDAController *pid,TrajectoryG *traject, fl
 
     pid->ControllerLastOut = pid->ControllerOut;
 	pid->Last2Error = pid->Last1Error;
-	pid->Last1Error = errorDZ;
+	pid->Last1Error = error;
 
 	return pid->ControllerOut;
 }
