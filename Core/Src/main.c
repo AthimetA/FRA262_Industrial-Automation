@@ -781,7 +781,7 @@ void ControllLoopAndErrorHandler()
 //		setpointLast = 0;
 //		setpoint = 0;
 //	}
-//	setpoint = 60.0;
+//	setpoint = 40.0;
 //	PIDAVelocityController_Update(&PidVelo, setpoint, KalmanVar.MatState_Data[1]);
 //	invTFOutput = InverseTFofMotor(setpointLast,setpoint);
 //	PWMCHECKER = PidVelo.ControllerOut;
