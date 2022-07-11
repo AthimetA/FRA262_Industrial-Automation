@@ -772,6 +772,7 @@ void ControllLoopAndErrorHandler()
 	if(Robot.MotorIsOn == 1)
 	{
 		// Start Trajectory
+		// For test
 		if (Robot.flagStartTime == 1)
 		{
 			StartTime = Micros();
