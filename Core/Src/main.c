@@ -769,32 +769,6 @@ float InverseTFofMotor(float Velo, float PredictVelo)
 
 void ControllLoopAndErrorHandler()
 {
-	// ****------------Test Code-----------***** //
-//	if(setpoint < 10.0)
-//	{
-//		setpointLast = setpoint;
-//		setpoint += 0.01;
-//
-//	}
-//	else
-//	{
-//		setpointLast = 0;
-//		setpoint = 0;
-//	}
-//	setpoint = 40.0;
-//	PIDAVelocityController_Update(&PidVelo, setpoint, KalmanVar.MatState_Data[1]);
-//	invTFOutput = InverseTFofMotor(setpointLast,setpoint);
-//	PWMCHECKER = PidVelo.ControllerOut;
-//	Drivemotor(PWMCHECKER);
-//	if (Robot.flagStartTime == 1)
-//	{
-//		StartTime = Micros();
-//		Robot.flagStartTime = 0;
-//	}
-//	CurrentTime = Micros();
-//	PredictTime = CurrentTime + 10000;
-//	TrajectoryEvaluation(&traject,StartTime,CurrentTime,PredictTime);
-	// ****------------Test Code-----------***** //
 	if(Robot.MotorIsOn == 1)
 	{
 		// Start Trajectory
