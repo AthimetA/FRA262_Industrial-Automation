@@ -233,6 +233,7 @@ void UARTstateManagement(uint8_t *Mainbuffer);
 void RobotstateManagement();
 void EndEffstateManagement();
 float InverseTFofMotor(float Velo, float PredictVelo);
+float InverseTFofMotorWith1kg(float Velo);
 void RobotResetAll();
 /* USER CODE END PFP */
 
@@ -766,6 +767,18 @@ float InverseTFofMotor(float Velo, float PredictVelo)
 	return Pwm;
 }
 
+float InverseTFofMotorWith1kg(float Velo)
+{
+	static float VeloLast = 0;
+	static float VeloLast2 = 0;
+	static float Voltage = 0;
+	static float Pwm = 0;
+	Voltage = (Velo - (1.832*VeloLast) + (0.8444*VeloLast2))/0.04837;
+	Pwm = (Voltage * 10000.0)/12.0;
+	VeloLast2 = VeloLast;
+	VeloLast = Velo;
+	return Pwm;
+}
 
 void ControllLoopAndErrorHandler()
 {
